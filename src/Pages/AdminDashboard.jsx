@@ -1,102 +1,287 @@
 import { useState, useEffect } from "react";
+import { collection, onSnapshot, query, orderBy, where, deleteDoc, doc, writeBatch, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 import "./AdminDashboard.css";
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 export default function AdminDashboard({ onLogout }) {
-  const [reports, setReports] = useState([]);
+  const [allSessions, setAllSessions] = useState([]);
+  const [activeStaff, setActiveStaff] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [staffSummary, setStaffSummary] = useState({});
+  const [loading, setLoading] = useState(false);
 
+  // Real-time listener for all sessions
   useEffect(() => {
-    loadReports();
-  }, []);
-
-  useEffect(() => {
-    calculateStaffSummary();
-  }, [reports, selectedDate]);
-
-  const loadReports = () => {
-    const savedReports = JSON.parse(localStorage.getItem('adminReports') || '[]');
-    setReports(savedReports);
-  };
-
-  const calculateStaffSummary = () => {
-    const filteredReports = reports.filter(report => 
-      report.date === new Date(selectedDate).toDateString()
-    );
-
-    const summary = {};
-    filteredReports.forEach(report => {
-      if (!summary[report.staffId]) {
-        summary[report.staffId] = {
-          staffName: report.staffName,
-          totalHours: 0,
-          sessions: 0,
-          lastActivity: null
-        };
-      }
+    const q = query(collection(db, 'sessions'), orderBy('clockIn', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const sessions = [];
+      const active = [];
       
-      summary[report.staffId].totalHours += report.totalHours;
-      summary[report.staffId].sessions += 1;
+      snapshot.forEach((doc) => {
+        const session = { id: doc.id, ...doc.data() };
+        sessions.push(session);
+        
+        // Check for active sessions (no clock out time)
+        if (!session.clockOut) {
+          active.push(session);
+        }
+      });
       
-      const sessionTime = new Date(report.clockOut);
-      if (!summary[report.staffId].lastActivity || sessionTime > new Date(summary[report.staffId].lastActivity)) {
-        summary[report.staffId].lastActivity = report.clockOut;
-      }
+      setAllSessions(sessions);
+      setActiveStaff(active);
     });
 
-    setStaffSummary(summary);
+    return () => unsubscribe();
+  }, []);
+
+  const filteredSessions = allSessions.filter(session => 
+    session.date === new Date(selectedDate).toDateString()
+  );
+
+  // Calculate staff summary
+  const staffSummary = {};
+  filteredSessions.forEach(session => {
+    if (!staffSummary[session.staffId]) {
+      staffSummary[session.staffId] = {
+        staffName: session.staffName,
+        totalHours: 0,
+        sessions: 0,
+        lastActivity: session.clockIn
+      };
+    }
+    
+    if (session.clockOut) {
+      staffSummary[session.staffId].totalHours += session.totalHours || 0;
+    }
+    staffSummary[session.staffId].sessions += 1;
+  });
+
+  // Export to PDF function
+  const exportToPDF = () => {
+    setLoading(true);
+    
+    try {
+      const doc = new jsPDF();
+      
+      // Title
+      doc.setFontSize(20);
+      doc.setTextColor(40, 40, 40);
+      doc.text('Cafe Pirana - Staff Report', 105, 20, { align: 'center' });
+      
+      // Date
+      doc.setFontSize(12);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Date: ${new Date(selectedDate).toDateString()}`, 105, 30, { align: 'center' });
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 36, { align: 'center' });
+      
+      let yPosition = 50;
+      
+      // Staff Summary Table
+      if (Object.keys(staffSummary).length > 0) {
+        doc.setFontSize(14);
+        doc.setTextColor(40, 40, 40);
+        doc.text('Staff Summary', 14, yPosition);
+        yPosition += 10;
+        
+        const summaryData = Object.entries(staffSummary).map(([staffId, data]) => [
+          data.staffName,
+          staffId,
+          data.sessions.toString(),
+          `${data.totalHours.toFixed(2)}h`,
+          formatTime(data.lastActivity)
+        ]);
+        
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Staff Name', 'Staff ID', 'Sessions', 'Total Hours', 'Last Activity']],
+          body: summaryData,
+          theme: 'grid',
+          headStyles: { fillColor: [74, 124, 89] },
+          styles: { fontSize: 10 },
+          margin: { left: 14, right: 14 }
+        });
+        
+        yPosition = doc.lastAutoTable.finalY + 15;
+      }
+      
+      // Detailed Sessions Table
+      if (filteredSessions.length > 0) {
+        doc.setFontSize(14);
+        doc.setTextColor(40, 40, 40);
+        doc.text('Detailed Sessions', 14, yPosition);
+        yPosition += 10;
+        
+        const sessionData = filteredSessions.map(session => [
+          session.staffName,
+          formatTime(session.clockIn),
+          session.clockOut ? formatTime(session.clockOut) : 'Active',
+          session.clockOut ? formatDuration(session.duration) : 'In Progress',
+          session.clockOut ? 'Completed' : 'Active'
+        ]);
+        
+        doc.autoTable({
+          startY: yPosition,
+          head: [['Staff Name', 'Clock In', 'Clock Out', 'Duration', 'Status']],
+          body: sessionData,
+          theme: 'grid',
+          headStyles: { fillColor: [59, 130, 246] },
+          styles: { fontSize: 9 },
+          margin: { left: 14, right: 14 }
+        });
+      }
+      
+      // Statistics
+      const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 15 : yPosition;
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Total Staff: ${Object.keys(staffSummary).length}`, 14, finalY);
+      doc.text(`Total Sessions: ${filteredSessions.length}`, 14, finalY + 6);
+      doc.text(`Active Staff: ${activeStaff.length}`, 14, finalY + 12);
+      
+      // Save the PDF
+      doc.save(`cafe-pirana-report-${selectedDate}.pdf`);
+      
+      alert('📊 PDF report generated successfully!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('❌ Error generating PDF: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Export to CSV function
+  const exportToCSV = () => {
+    try {
+      const headers = ['Staff Name', 'Staff ID', 'Date', 'Clock In', 'Clock Out', 'Duration', 'Status', 'Total Hours'];
+      const csvData = filteredSessions.map(session => [
+        session.staffName,
+        session.staffId,
+        session.date,
+        formatTime(session.clockIn),
+        session.clockOut ? formatTime(session.clockOut) : 'Active',
+        session.clockOut ? formatDuration(session.duration) : 'In Progress',
+        session.clockOut ? 'Completed' : 'Active',
+        session.totalHours ? session.totalHours.toFixed(2) : '0.00'
+      ]);
+      
+      const csvContent = [headers, ...csvData]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `cafe-pirana-data-${selectedDate}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      alert('📈 CSV file exported successfully!');
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      alert('❌ Error exporting CSV: ' + error.message);
+    }
+  };
+
+  // Clear all data function
+  const clearAllData = async () => {
+    const confirmClear = window.confirm(
+      '🚨 DANGER ZONE!\n\nThis will permanently delete ALL data from the database.\n\nThis action cannot be undone!\n\nType "DELETE ALL" to confirm:'
+    );
+    
+    if (!confirmClear) return;
+    
+    const userInput = prompt('Please type "DELETE ALL" to confirm permanent deletion:');
+    if (userInput !== 'DELETE ALL') {
+      alert('❌ Deletion cancelled. Data is safe.');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      // Get all documents
+      const querySnapshot = await getDocs(collection(db, 'sessions'));
+      
+      // Delete in batches to avoid Firestore limits
+      const batch = writeBatch(db);
+      let deleteCount = 0;
+      
+      querySnapshot.forEach((document) => {
+        batch.delete(doc(db, 'sessions', document.id));
+        deleteCount++;
+        
+        // Commit in batches of 500 (Firestore limit)
+        if (deleteCount % 500 === 0) {
+          batch.commit();
+        }
+      });
+      
+      // Commit remaining deletes
+      await batch.commit();
+      
+      alert(`✅ Successfully deleted ${deleteCount} records! Database is now empty.`);
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      alert('❌ Error clearing data: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Clear data for selected date only
+  const clearDateData = async () => {
+    const confirmClear = window.confirm(
+      `Clear all data for ${new Date(selectedDate).toDateString()}?\n\nThis action cannot be undone.`
+    );
+    
+    if (!confirmClear) return;
+    
+    setLoading(true);
+    
+    try {
+      const sessionsToDelete = filteredSessions;
+      let deleteCount = 0;
+      
+      // Delete in batches
+      const batch = writeBatch(db);
+      
+      sessionsToDelete.forEach(session => {
+        batch.delete(doc(db, 'sessions', session.id));
+        deleteCount++;
+      });
+      
+      await batch.commit();
+      
+      alert(`✅ Successfully deleted ${deleteCount} records for ${new Date(selectedDate).toDateString()}`);
+    } catch (error) {
+      console.error('Error clearing date data:', error);
+      alert('❌ Error clearing data: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatTime = (dateString) => {
-    return new Date(dateString).toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
+    return new Date(dateString).toLocaleTimeString('en-US', {
+      hour: '2-digit',
       minute: '2-digit',
-      hour12: true 
+      hour12: true
     });
   };
 
-  const formatDuration = (hours) => {
-    const wholeHours = Math.floor(hours);
-    const minutes = Math.round((hours - wholeHours) * 60);
-    return `${wholeHours}h ${minutes}m`;
+  const formatDuration = (ms) => {
+    const hours = Math.floor(ms / (1000 * 60 * 60));
+    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
   };
-
-  const clearAllData = () => {
-    if (window.confirm("Are you sure you want to clear ALL data? This cannot be undone!")) {
-      localStorage.removeItem('adminReports');
-      setReports([]);
-      setStaffSummary({});
-      alert("All data has been cleared.");
-    }
-  };
-
-  const exportToCSV = () => {
-    const filteredReports = reports.filter(report => 
-      report.date === new Date(selectedDate).toDateString()
-    );
-
-    if (filteredReports.length === 0) {
-      alert("No data to export for selected date.");
-      return;
-    }
-
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + "Staff Name,Staff ID,Date,Clock In,Clock Out,Duration (Hours),Total Hours\n"
-      + filteredReports.map(report => 
-          `"${report.staffName}","${report.staffId}","${report.date}","${formatTime(report.clockIn)}","${formatTime(report.clockOut)}","${formatDuration(report.totalHours)}","${report.totalHours.toFixed(2)}"`
-        ).join("\n");
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `cafe_pirana_report_${selectedDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-  };
-
-  const filteredReports = reports.filter(report => 
-    report.date === new Date(selectedDate).toDateString()
-  );
 
   return (
     <div className="admin-dashboard">
@@ -104,66 +289,131 @@ export default function AdminDashboard({ onLogout }) {
       <div className="admin-header">
         <div className="admin-info">
           <h1>🏢 Cafe Pirana - Admin Dashboard</h1>
-          <p>Staff Attendance & Time Tracking System</p>
+          <p>Real-time Staff Monitoring & Reports</p>
+          <div className="live-indicator">
+            <span className="live-dot"></span>
+            LIVE UPDATES
+          </div>
         </div>
-        <div className="admin-actions">
-          <button className="logout-btn" onClick={onLogout}>
-            🚪 Logout
+        
+        <div className="active-staff-counter">
+          <div className="counter-number">{activeStaff.length}</div>
+          <div className="counter-label">Currently Working</div>
+        </div>
+      </div>
+
+      {/* Export & Management Controls */}
+      <div className="management-section">
+        <h3>📤 Export & Data Management</h3>
+        <div className="management-buttons">
+          <button 
+            className="export-btn pdf-btn" 
+            onClick={exportToPDF}
+            disabled={loading || filteredSessions.length === 0}
+          >
+            {loading ? '⏳' : '📊'} Export PDF
+          </button>
+          
+          <button 
+            className="export-btn csv-btn" 
+            onClick={exportToCSV}
+            disabled={loading || filteredSessions.length === 0}
+          >
+            {loading ? '⏳' : '📈'} Export CSV
+          </button>
+          
+          <button 
+            className="clear-btn date-clear-btn" 
+            onClick={clearDateData}
+            disabled={loading || filteredSessions.length === 0}
+          >
+            {loading ? '⏳' : '🗑️'} Clear This Date
+          </button>
+          
+          <button 
+            className="clear-btn danger-btn" 
+            onClick={clearAllData}
+            disabled={loading}
+          >
+            {loading ? '⏳' : '🚨'} Clear All Data
           </button>
         </div>
+        
+        <div className="export-stats">
+          <p>
+            <strong>Data Summary:</strong> {Object.keys(staffSummary).length} staff, {' '}
+            {filteredSessions.length} sessions on {new Date(selectedDate).toDateString()}
+          </p>
+        </div>
+      </div>
+
+      {/* Real-time Active Staff */}
+      <div className="active-staff-section">
+        <h3>🟢 Currently Working</h3>
+        {activeStaff.length === 0 ? (
+          <div className="no-active-staff">
+            <p>No staff currently clocked in</p>
+          </div>
+        ) : (
+          <div className="active-staff-grid">
+            {activeStaff.map(staff => (
+              <div key={staff.id} className="active-staff-card">
+                <div className="staff-avatar">
+                  {staff.staffName.charAt(0).toUpperCase()}
+                </div>
+                <div className="staff-details">
+                  <strong>{staff.staffName}</strong>
+                  <small>ID: {staff.staffId}</small>
+                  <div className="session-duration">
+                    Working: <LiveTimer startTime={new Date(staff.clockIn)} />
+                  </div>
+                </div>
+                <div className="status-indicator active"></div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Controls */}
       <div className="controls-section">
         <div className="control-group">
-          <label htmlFor="dateFilter">Select Date:</label>
+          <label>Select Date:</label>
           <input 
-            id="dateFilter"
             type="date" 
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
           />
         </div>
-        <div className="control-buttons">
-          <button className="export-btn" onClick={exportToCSV}>
-            📥 Export CSV
-          </button>
-          <button className="refresh-btn" onClick={loadReports}>
-            🔄 Refresh
-          </button>
-          <button className="clear-btn" onClick={clearAllData}>
-            🗑️ Clear All Data
-          </button>
-        </div>
       </div>
 
       {/* Staff Summary */}
       <div className="summary-section">
-        <h2>👥 Staff Summary - {new Date(selectedDate).toDateString()}</h2>
+        <h3>📊 Staff Summary - {new Date(selectedDate).toDateString()}</h3>
         {Object.keys(staffSummary).length === 0 ? (
           <div className="no-data">
-            <p>No staff activity recorded for selected date.</p>
+            <p>No activity for selected date</p>
           </div>
         ) : (
           <div className="staff-cards">
             {Object.entries(staffSummary).map(([staffId, data]) => (
               <div key={staffId} className="staff-card">
                 <div className="staff-header">
-                  <h3>{data.staffName}</h3>
-                  <span className="staff-id">ID: {staffId}</span>
+                  <h4>{data.staffName}</h4>
+                  <span className="staff-id">{staffId}</span>
                 </div>
                 <div className="staff-stats">
                   <div className="stat">
-                    <span className="stat-label">Total Hours:</span>
-                    <span className="stat-value">{data.totalHours.toFixed(2)}h</span>
+                    <span>Total Hours:</span>
+                    <strong>{data.totalHours.toFixed(2)}h</strong>
                   </div>
                   <div className="stat">
-                    <span className="stat-label">Sessions:</span>
-                    <span className="stat-value">{data.sessions}</span>
+                    <span>Sessions:</span>
+                    <strong>{data.sessions}</strong>
                   </div>
                   <div className="stat">
-                    <span className="stat-label">Last Activity:</span>
-                    <span className="stat-value">{formatTime(data.lastActivity)}</span>
+                    <span>Last Activity:</span>
+                    <strong>{formatTime(data.lastActivity)}</strong>
                   </div>
                 </div>
               </div>
@@ -172,67 +422,64 @@ export default function AdminDashboard({ onLogout }) {
         )}
       </div>
 
-      {/* Detailed Reports */}
-      <div className="reports-section">
-        <h2>📋 Detailed Session Reports</h2>
-        {filteredReports.length === 0 ? (
-          <div className="no-data">
-            <p>No session reports for selected date.</p>
+      {/* All Sessions */}
+      <div className="sessions-section">
+        <h3>📋 All Sessions - {new Date(selectedDate).toDateString()}</h3>
+        {filteredSessions.length === 0 ? (
+          <div className="no-sessions">
+            <p>No sessions for selected date</p>
           </div>
         ) : (
-          <div className="reports-table">
-            <div className="table-header">
-              <div>Staff Name</div>
-              <div>Clock In</div>
-              <div>Clock Out</div>
-              <div>Duration</div>
-              <div>Total Hours</div>
-            </div>
-            {filteredReports.map((report, index) => (
-              <div key={index} className="table-row">
-                <div className="staff-info">
-                  <strong>{report.staffName}</strong>
-                  <small>ID: {report.staffId}</small>
+          <div className="sessions-list">
+            {filteredSessions.map(session => (
+              <div key={session.id} className={`session-item ${!session.clockOut ? 'active-session' : ''}`}>
+                <div className="session-header">
+                  <strong>{session.staffName}</strong>
+                  <span className="session-id">ID: {session.staffId}</span>
                 </div>
-                <div>{formatTime(report.clockIn)}</div>
-                <div>{formatTime(report.clockOut)}</div>
-                <div>{formatDuration(report.totalHours)}</div>
-                <div><strong>{report.totalHours.toFixed(2)}h</strong></div>
+                <div className="session-times">
+                  <span>In: {formatTime(session.clockIn)}</span>
+                  {session.clockOut ? (
+                    <span>Out: {formatTime(session.clockOut)}</span>
+                  ) : (
+                    <span className="active-badge">ACTIVE NOW</span>
+                  )}
+                </div>
+                <div className="session-duration">
+                  {session.clockOut ? (
+                    formatDuration(session.duration)
+                  ) : (
+                    <LiveTimer startTime={new Date(session.clockIn)} />
+                  )}
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Statistics */}
-      <div className="stats-section">
-        <h2>📊 Daily Statistics</h2>
-        <div className="stats-cards">
-          <div className="stat-card">
-            <div className="stat-icon">👥</div>
-            <div className="stat-content">
-              <h3>Active Staff</h3>
-              <p className="stat-number">{Object.keys(staffSummary).length}</p>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">📋</div>
-            <div className="stat-content">
-              <h3>Total Sessions</h3>
-              <p className="stat-number">{filteredReports.length}</p>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">🕒</div>
-            <div className="stat-content">
-              <h3>Total Hours</h3>
-              <p className="stat-number">
-                {filteredReports.reduce((total, report) => total + report.totalHours, 0).toFixed(2)}h
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <button className="logout-btn" onClick={onLogout} disabled={loading}>
+        {loading ? '⏳' : '🚪'} Logout
+      </button>
     </div>
   );
+}
+
+// Live Timer Component for Admin
+function LiveTimer({ startTime }) {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+  
+  const duration = currentTime - startTime;
+  const hours = Math.floor(duration / (1000 * 60 * 60));
+  const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((duration % (1000 * 60)) / 1000);
+  
+  return `${hours}h ${minutes}m ${seconds}s`;
 }
