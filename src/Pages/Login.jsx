@@ -1,39 +1,129 @@
 import { useState } from "react";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth, db } from '../firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import "./Login.css";
 import StaffDashboard from "./StaffDashboard.jsx";
 import AdminDashboard from "./AdminDashboard.jsx";
 
 export default function Login() {
   const [isAdminLogin, setIsAdminLogin] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const [staffName, setStaffName] = useState("");
+  const [staffEmail, setStaffEmail] = useState("");
+  const [staffPassword, setStaffPassword] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
   const [userType, setUserType] = useState(""); // "staff" or "admin"
+  const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Admin credentials (in real app, this should be in backend)
+  // Admin credentials
   const ADMIN_CREDENTIALS = {
     username: "admin",
     password: "cafepirana2024"
   };
 
-  const handleStaffLogin = async (e) => {
+  // Staff Registration
+  const handleStaffRegister = async (e) => {
     e.preventDefault();
     
-    if (!staffName.trim()) {
-      alert("Please enter your name.");
+    if (!staffName.trim() || !staffEmail.trim() || !staffPassword.trim()) {
+      alert("Please fill in all fields.");
+      return;
+    }
+
+    if (staffPassword.length < 6) {
+      alert("Password must be at least 6 characters long.");
       return;
     }
 
     setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setUserType("staff");
-      setLoggedIn(true);
+
+    try {
+      // Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, staffEmail, staffPassword);
+      const user = userCredential.user;
+
+      // Create staff profile in Firestore
+      const staffProfile = {
+        staffName: staffName.trim(),
+        staffEmail: staffEmail.trim(),
+        createdAt: new Date().toISOString(),
+        staffId: `CP${staffName.replace(/\s+/g, '').toUpperCase().substr(0, 3)}`,
+        totalHours: 0,
+        sessionsCount: 0
+      };
+
+      await setDoc(doc(db, 'staff', user.uid), staffProfile);
+
+      alert("✅ Account created successfully! You can now login.");
+      setIsRegistering(false);
+      setStaffEmail("");
+      setStaffPassword("");
+      
+    } catch (error) {
+      console.error("Registration error:", error);
+      if (error.code === 'auth/email-already-in-use') {
+        alert("❌ Email already registered. Please use a different email or login.");
+      } else if (error.code === 'auth/invalid-email') {
+        alert("❌ Invalid email address.");
+      } else {
+        alert("❌ Registration failed: " + error.message);
+      }
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
+  };
+
+  // Staff Login
+  const handleStaffLogin = async (e) => {
+    e.preventDefault();
+    
+    if (!staffEmail.trim() || !staffPassword.trim()) {
+      alert("Please enter both email and password.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Sign in with Firebase Auth
+      const userCredential = await signInWithEmailAndPassword(auth, staffEmail, staffPassword);
+      const user = userCredential.user;
+
+      // Get staff profile from Firestore
+      const staffDoc = await getDoc(doc(db, 'staff', user.uid));
+      
+      if (staffDoc.exists()) {
+        const staffData = staffDoc.data();
+        setUserData({
+          uid: user.uid,
+          ...staffData
+        });
+        setUserType("staff");
+        setLoggedIn(true);
+      } else {
+        alert("❌ Staff profile not found. Please contact administrator.");
+        await auth.signOut();
+      }
+      
+    } catch (error) {
+      console.error("Login error:", error);
+      if (error.code === 'auth/user-not-found') {
+        alert("❌ Account not found. Please register first.");
+        setIsRegistering(true);
+      } else if (error.code === 'auth/wrong-password') {
+        alert("❌ Incorrect password.");
+      } else if (error.code === 'auth/invalid-email') {
+        alert("❌ Invalid email address.");
+      } else {
+        alert("❌ Login failed: " + error.message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAdminLogin = async (e) => {
@@ -46,7 +136,6 @@ export default function Login() {
 
     setIsLoading(true);
     
-    // Simulate API call with verification
     setTimeout(() => {
       if (adminUsername === ADMIN_CREDENTIALS.username && 
           adminPassword === ADMIN_CREDENTIALS.password) {
@@ -60,17 +149,24 @@ export default function Login() {
   };
 
   const handleLogout = () => {
+    if (userType === "staff") {
+      auth.signOut();
+    }
     setLoggedIn(false);
     setUserType("");
+    setUserData(null);
     setStaffName("");
+    setStaffEmail("");
+    setStaffPassword("");
     setAdminUsername("");
     setAdminPassword("");
     setIsAdminLogin(false);
+    setIsRegistering(false);
   };
 
   // Redirect to appropriate dashboard after login
-  if (loggedIn && userType === "staff") {
-    return <StaffDashboard staffName={staffName} onLogout={handleLogout} />;
+  if (loggedIn && userType === "staff" && userData) {
+    return <StaffDashboard staffData={userData} onLogout={handleLogout} />;
   }
 
   if (loggedIn && userType === "admin") {
@@ -87,30 +183,64 @@ export default function Login() {
             <div className="brand-text">
               <h1 className="cafe-name">Cafe Pirana</h1>
               <p className="cafe-subtitle">
-                {isAdminLogin ? "Admin Portal" : "Staff Portal"}
+                {isAdminLogin ? "Admin Portal" : isRegistering ? "Staff Registration" : "Staff Portal"}
               </p>
             </div>
           </div>
           <p className="login-subtitle">
-            {isAdminLogin ? "Administrator Access" : "Working Time & Attendance System"}
+            {isAdminLogin ? "Administrator Access" : 
+             isRegistering ? "Create Your Staff Account" : "Working Time & Attendance System"}
           </p>
         </div>
 
-        {/* Staff Login Form */}
+        {/* Staff Login/Register Form */}
         {!isAdminLogin ? (
-          <form onSubmit={handleStaffLogin} className="login-form">
+          <form onSubmit={isRegistering ? handleStaffRegister : handleStaffLogin} className="login-form">
+            {isRegistering && (
+              <div className="input-group">
+                <label htmlFor="staffName" className="input-label">
+                  Full Name
+                </label>
+                <input
+                  id="staffName"
+                  type="text"
+                  placeholder="Enter your full name"
+                  value={staffName}
+                  onChange={(e) => setStaffName(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+            )}
+
             <div className="input-group">
-              <label htmlFor="staffName" className="input-label">
-                Your Name
+              <label htmlFor="staffEmail" className="input-label">
+                Email Address
               </label>
               <input
-                id="staffName"
-                type="text"
-                placeholder="Enter your full name"
-                value={staffName}
-                onChange={(e) => setStaffName(e.target.value)}
+                id="staffEmail"
+                type="email"
+                placeholder="Enter your email"
+                value={staffEmail}
+                onChange={(e) => setStaffEmail(e.target.value)}
                 className="form-input"
                 required
+              />
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="staffPassword" className="input-label">
+                Password
+              </label>
+              <input
+                id="staffPassword"
+                type="password"
+                placeholder={isRegistering ? "Create a password (min. 6 characters)" : "Enter your password"}
+                value={staffPassword}
+                onChange={(e) => setStaffPassword(e.target.value)}
+                className="form-input"
+                required
+                minLength={6}
               />
             </div>
 
@@ -122,14 +252,25 @@ export default function Login() {
               {isLoading ? (
                 <>
                   <div className="spinner"></div>
-                  Signing In...
+                  {isRegistering ? 'Creating Account...' : 'Signing In...'}
                 </>
               ) : (
-                'Clock In System'
+                isRegistering ? 'Create Account' : 'Sign In'
               )}
             </button>
 
-            <div className="admin-switch">
+            <div className="form-switch">
+              <button 
+                type="button"
+                className="switch-btn"
+                onClick={() => setIsRegistering(!isRegistering)}
+              >
+                {isRegistering 
+                  ? '← Already have an account? Sign In' 
+                  : 'Need an account? Register Here'
+                }
+              </button>
+              
               <button 
                 type="button"
                 className="admin-btn"
@@ -187,13 +328,13 @@ export default function Login() {
               )}
             </button>
 
-            <div className="admin-switch">
+            <div className="form-switch">
               <button 
                 type="button"
                 className="back-btn"
                 onClick={() => setIsAdminLogin(false)}
               >
-                ← Back to Staff Login
+                ← Back to Staff Portal
               </button>
             </div>
           </form>
@@ -205,7 +346,9 @@ export default function Login() {
           <p>
             {isAdminLogin 
               ? "Administrative access only. All activities are logged."
-              : "Secure staff access only. Unauthorized access prohibited."
+              : isRegistering 
+                ? "Your account data is securely stored and encrypted."
+                : "Secure staff access only. Unauthorized access prohibited."
             }
           </p>
         </div>

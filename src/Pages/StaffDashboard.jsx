@@ -1,80 +1,64 @@
-import { useState, useEffect, useMemo } from "react";
-import { collection, addDoc, updateDoc, doc, onSnapshot, query, where, orderBy } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useState, useEffect } from "react";
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  onSnapshot,
+  query,
+  where,
+  orderBy,
+} from "firebase/firestore";
+import { db } from "../firebase";
 import "./StaffDashboard.css";
 
-export default function StaffDashboard({ staffName, onLogout }) {
+export default function StaffDashboard({ staffData, onLogout }) {
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [currentSession, setCurrentSession] = useState(null);
   const [todaySessions, setTodaySessions] = useState([]);
   const [totalHoursToday, setTotalHoursToday] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // FIXED: Consistent staff ID using useMemo and localStorage
-  const staffId = useMemo(() => {
-    // Try to get existing staff ID from localStorage
-    const storedStaffId = localStorage.getItem(`staffId_${staffName}`);
-    
-    if (storedStaffId) {
-      console.log("Using existing staff ID:", storedStaffId);
-      return storedStaffId;
-    }
-    
-    // Create new consistent ID based on name only (no random part)
-    const namePart = staffName.replace(/\s+/g, '').toUpperCase().substr(0, 3);
-    const newStaffId = `CP${namePart}`;
-    
-    // Store it for future use
-    localStorage.setItem(`staffId_${staffName}`, newStaffId);
-    console.log("Created new staff ID:", newStaffId);
-    
-    return newStaffId;
-  }, [staffName]);
+  // Destructure staff data from props
+  const { staffName, staffId, uid } = staffData;
 
-  // Real-time listener for today's sessions
+  // === Real-time Firestore listener for this staff ===
   useEffect(() => {
-    console.log("Setting up Firestore listener for staff:", staffId);
-    
+    console.log("Setting up Firestore listener for:", staffName, "UID:", uid);
+
     const today = new Date().toDateString();
     const q = query(
-      collection(db, 'sessions'),
-      where('staffId', '==', staffId),
-      where('date', '==', today),
-      orderBy('clockIn', 'desc')
+      collection(db, "sessions"),
+      where("staffUid", "==", uid),
+      where("date", "==", today),
+      orderBy("clockIn", "desc")
     );
 
-    const unsubscribe = onSnapshot(q, 
+    const unsubscribe = onSnapshot(
+      q,
       (snapshot) => {
-        console.log("Received data from Firestore:", snapshot.size, "documents");
         const sessions = [];
         let totalHours = 0;
-        
+
         snapshot.forEach((doc) => {
-          const sessionData = { id: doc.id, ...doc.data() };
-          console.log("Session data:", sessionData);
-          sessions.push(sessionData);
-          
-          // Calculate total hours from completed sessions
-          if (sessionData.clockOut && sessionData.duration) {
-            totalHours += sessionData.duration / (1000 * 60 * 60); // Convert ms to hours
+          const data = { id: doc.id, ...doc.data() };
+          sessions.push(data);
+          if (data.clockOut && data.duration) {
+            totalHours += data.duration / (1000 * 60 * 60); // ms → hours
           }
         });
-        
+
         setTodaySessions(sessions);
         setTotalHoursToday(totalHours);
-        console.log("Total sessions found:", sessions.length);
-        console.log("Total hours:", totalHours);
-        
+
         // Check for active session
-        const activeSession = sessions.find(session => !session.clockOut);
+        const activeSession = sessions.find((s) => !s.clockOut);
         if (activeSession) {
           setIsClockedIn(true);
           setCurrentSession(activeSession);
-          console.log("Active session found:", activeSession);
         } else {
           setIsClockedIn(false);
           setCurrentSession(null);
-          console.log("No active session found");
         }
       },
       (error) => {
@@ -84,78 +68,76 @@ export default function StaffDashboard({ staffName, onLogout }) {
     );
 
     return () => unsubscribe();
-  }, [staffId]);
+  }, [uid, staffName]);
 
+  // === Clock In ===
   const clockIn = async () => {
     setLoading(true);
     const clockInTime = new Date();
+
     const session = {
+      staffUid: uid,
       staffId: staffId,
       staffName: staffName,
       clockIn: clockInTime.toISOString(),
       clockOut: null,
       duration: 0,
       date: new Date().toDateString(),
-      status: 'active',
-      timestamp: new Date().toISOString()
+      status: "active",
+      timestamp: new Date().toISOString(),
     };
-    
+
     try {
-      console.log("Clock in - Adding document:", session);
-      const docRef = await addDoc(collection(db, 'sessions'), session);
-      console.log("Document written with ID: ", docRef.id);
+      const docRef = await addDoc(collection(db, "sessions"), session);
       setCurrentSession({ id: docRef.id, ...session });
       setIsClockedIn(true);
-      showNotification(`🟢 Clocked in at ${formatTime(clockInTime)}`, 'success');
+      showNotification(`🟢 Clocked in at ${formatTime(clockInTime)}`, "success");
     } catch (error) {
-      console.error('Error clocking in:', error);
-      showNotification('❌ Error clocking in: ' + error.message, 'error');
+      console.error("Error clocking in:", error);
+      showNotification("❌ Error clocking in: " + error.message, "error");
     } finally {
       setLoading(false);
     }
   };
 
+  // === Clock Out ===
   const clockOut = async () => {
     if (!currentSession) return;
-    
     setLoading(true);
+
     const clockOutTime = new Date();
     const clockInTime = new Date(currentSession.clockIn);
     const duration = clockOutTime - clockInTime;
-    
+
     try {
-      console.log("Clock out - Updating document:", currentSession.id);
-      const sessionRef = doc(db, 'sessions', currentSession.id);
+      const sessionRef = doc(db, "sessions", currentSession.id);
       await updateDoc(sessionRef, {
         clockOut: clockOutTime.toISOString(),
         duration: duration,
         totalHours: duration / (1000 * 60 * 60),
-        status: 'completed'
+        status: "completed",
       });
-      
-      console.log("Document updated successfully");
+
       setIsClockedIn(false);
       setCurrentSession(null);
-      showNotification(`🔴 Clocked out - Session: ${formatDuration(duration)}`, 'info');
+      showNotification(`🔴 Clocked out - Worked ${formatDuration(duration)}`, "info");
     } catch (error) {
-      console.error('Error clocking out:', error);
-      showNotification('❌ Error clocking out: ' + error.message, 'error');
+      console.error("Error clocking out:", error);
+      showNotification("❌ Error clocking out: " + error.message, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const showNotification = (message, type) => {
-    alert(message);
-  };
+  // === Helpers ===
+  const showNotification = (msg) => alert(msg);
 
-  const formatTime = (date) => {
-    return new Date(date).toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
+  const formatTime = (date) =>
+    new Date(date).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     });
-  };
 
   const formatDuration = (ms) => {
     const hours = Math.floor(ms / (1000 * 60 * 60));
@@ -165,32 +147,27 @@ export default function StaffDashboard({ staffName, onLogout }) {
 
   const handleLogout = () => {
     if (isClockedIn) {
-      const shouldLogout = window.confirm(
-        "⏰ You are currently clocked in! If you logout, your current session will be ended. Continue?"
+      const confirmLogout = window.confirm(
+        "⏰ You are currently clocked in! Logging out will end your active session. Continue?"
       );
-      if (!shouldLogout) return;
+      if (!confirmLogout) return;
       clockOut();
     }
-    
-    // Clear staff session but keep the staff ID for next time
-    if (onLogout) {
-      onLogout();
-    }
+    if (onLogout) onLogout();
   };
 
   const clearTodayData = () => {
-    const shouldClear = window.confirm(
-      "🗑️ Clear all today's data?\n\nThis will remove all your sessions for today. This action cannot be undone."
+    const confirmClear = window.confirm(
+      "🗑️ Clear all today's data?\nThis will remove all your sessions for today (locally only)."
     );
-    
-    if (shouldClear) {
-      // This would need to delete from Firestore - for now just clear local state
+    if (confirmClear) {
       setTodaySessions([]);
       setTotalHoursToday(0);
-      showNotification('Today\'s data has been cleared locally', 'info');
+      showNotification("Today's data cleared locally", "info");
     }
   };
 
+  // === UI ===
   return (
     <div className="staff-dashboard">
       {/* Header */}
@@ -198,22 +175,28 @@ export default function StaffDashboard({ staffName, onLogout }) {
         <div className="staff-info">
           <h1>Welcome, {staffName}! 👋</h1>
           <div className="staff-details">
-            <p><strong>Staff ID:</strong> {staffId}</p>
-            <p><strong>Date:</strong> {new Date().toDateString()}</p>
-            <p><strong>Status:</strong> {isClockedIn ? 'Clocked In' : 'Clocked Out'}</p>
+            <p>
+              <strong>Staff ID:</strong> {staffId}
+            </p>
+            <p>
+              <strong>Date:</strong> {new Date().toDateString()}
+            </p>
+            <p>
+              <strong>Status:</strong> {isClockedIn ? "Clocked In" : "Clocked Out"}
+            </p>
           </div>
         </div>
         <div className="header-actions">
-          <div className={`status-badge ${isClockedIn ? 'clocked-in' : 'clocked-out'}`}>
-            {isClockedIn ? '🟢 CLOCKED IN' : '🔴 CLOCKED OUT'}
+          <div className={`status-badge ${isClockedIn ? "clocked-in" : "clocked-out"}`}>
+            {isClockedIn ? "🟢 CLOCKED IN" : "🔴 CLOCKED OUT"}
           </div>
           <button className="logout-btn" onClick={handleLogout} disabled={loading}>
-            {loading ? '⏳' : '🚪'} Logout
+            {loading ? "⏳" : "🚪"} Logout
           </button>
         </div>
       </div>
 
-      {/* Current Session Timer */}
+      {/* Active Session */}
       {isClockedIn && currentSession && (
         <div className="current-session">
           <div className="timer-card">
@@ -222,29 +205,34 @@ export default function StaffDashboard({ staffName, onLogout }) {
               <LiveTimer startTime={new Date(currentSession.clockIn)} />
             </div>
             <div className="session-info">
-              <p><strong>Clock In:</strong> {formatTime(currentSession.clockIn)}</p>
-              <p><strong>Current Duration:</strong> {formatDuration(new Date() - new Date(currentSession.clockIn))}</p>
+              <p>
+                <strong>Clock In:</strong> {formatTime(currentSession.clockIn)}
+              </p>
+              <p>
+                <strong>Current Duration:</strong>{" "}
+                {formatDuration(new Date() - new Date(currentSession.clockIn))}
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Clock In/Out Buttons */}
+      {/* Clock In / Out Buttons */}
       <div className="actions-section">
         <div className="action-buttons">
           {!isClockedIn ? (
             <button className="clock-in-btn" onClick={clockIn} disabled={loading}>
-              {loading ? '⏳' : '📍'} Clock In
+              {loading ? "⏳" : "📍"} Clock In
             </button>
           ) : (
             <button className="clock-out-btn" onClick={clockOut} disabled={loading}>
-              {loading ? '⏳' : '🏁'} Clock Out
+              {loading ? "⏳" : "🏁"} Clock Out
             </button>
           )}
         </div>
       </div>
 
-      {/* Today's Summary */}
+      {/* Summary Cards */}
       <div className="summary-cards">
         <div className="summary-card">
           <div className="card-icon">🕒</div>
@@ -253,7 +241,7 @@ export default function StaffDashboard({ staffName, onLogout }) {
             <p className="card-value">{totalHoursToday.toFixed(2)}h</p>
           </div>
         </div>
-        
+
         <div className="summary-card">
           <div className="card-icon">📊</div>
           <div className="card-content">
@@ -266,7 +254,7 @@ export default function StaffDashboard({ staffName, onLogout }) {
           <div className="card-icon">✅</div>
           <div className="card-content">
             <h3>Status</h3>
-            <p className="card-value">{isClockedIn ? 'Working' : 'Offline'}</p>
+            <p className="card-value">{isClockedIn ? "Working" : "Offline"}</p>
           </div>
         </div>
       </div>
@@ -281,7 +269,7 @@ export default function StaffDashboard({ staffName, onLogout }) {
             </button>
           )}
         </div>
-        
+
         {todaySessions.length === 0 ? (
           <div className="no-sessions">
             <div className="no-sessions-icon">⏰</div>
@@ -290,23 +278,32 @@ export default function StaffDashboard({ staffName, onLogout }) {
           </div>
         ) : (
           <div className="sessions-list">
-            {todaySessions.map((session, index) => (
-              <div key={session.id} className={`session-item ${!session.clockOut ? 'active-session' : ''}`}>
-                <div className="session-number">#{index + 1}</div>
+            {todaySessions.map((session, i) => (
+              <div
+                key={session.id}
+                className={`session-item ${!session.clockOut ? "active-session" : ""}`}
+              >
+                <div className="session-number">#{i + 1}</div>
                 <div className="session-details">
                   <div className="session-times">
                     <span className="time-in">🟢 {formatTime(session.clockIn)}</span>
                     <span className="time-separator">→</span>
                     <span className="time-out">
-                      {session.clockOut ? `🔴 ${formatTime(session.clockOut)}` : '🟢 Active'}
+                      {session.clockOut
+                        ? `🔴 ${formatTime(session.clockOut)}`
+                        : "🟢 Active"}
                     </span>
                   </div>
                   <div className="session-date">
-                    {session.clockOut ? 'Completed' : 'In Progress'}
+                    {session.clockOut ? "Completed" : "In Progress"}
                   </div>
                 </div>
                 <div className="session-duration">
-                  {session.clockOut ? formatDuration(session.duration) : <LiveTimer startTime={new Date(session.clockIn)} />}
+                  {session.clockOut ? (
+                    formatDuration(session.duration)
+                  ) : (
+                    <LiveTimer startTime={new Date(session.clockIn)} />
+                  )}
                 </div>
               </div>
             ))}
@@ -317,27 +314,21 @@ export default function StaffDashboard({ staffName, onLogout }) {
   );
 }
 
-// Live Timer Component
+// === Live Timer Component ===
 function LiveTimer({ startTime }) {
   const [currentTime, setCurrentTime] = useState(new Date());
-
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const duration = currentTime - startTime;
-  const hours = Math.floor(duration / (1000 * 60 * 60));
-  const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((duration % (1000 * 60)) / 1000);
-
+  const diff = currentTime - startTime;
+  const h = Math.floor(diff / (1000 * 60 * 60));
+  const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const s = Math.floor((diff % (1000 * 60)) / 1000);
   return (
     <div className="live-timer">
-      {String(hours).padStart(2, '0')}:
-      {String(minutes).padStart(2, '0')}:
-      {String(seconds).padStart(2, '0')}
+      {String(h).padStart(2, "0")}:{String(m).padStart(2, "0")}:
+      {String(s).padStart(2, "0")}
     </div>
   );
 }
