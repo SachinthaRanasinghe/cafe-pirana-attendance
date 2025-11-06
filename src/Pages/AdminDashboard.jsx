@@ -69,7 +69,7 @@ export default function AdminDashboard({ onLogout }) {
 
       // Header
       doc.setFontSize(20);
-      doc.text("Cafe Pirana - Staff Report", 105, 20, { align: "center" });
+      doc.text("Cafe Piranha - Staff Report", 105, 20, { align: "center" });
       doc.setFontSize(12);
       doc.text(`Date: ${new Date(selectedDate).toDateString()}`, 105, 30, {
         align: "center",
@@ -162,7 +162,7 @@ export default function AdminDashboard({ onLogout }) {
       doc.text(`Total Sessions: ${filteredSessions.length}`, 14, finalY + 6);
       doc.text(`Active Staff: ${activeStaff.length}`, 14, finalY + 12);
 
-      doc.save(`cafe-pirana-report-${selectedDate}.pdf`);
+      doc.save(`cafe-Piranha-report-${selectedDate}.pdf`);
       alert("📊 PDF generated successfully!");
     } catch (err) {
       console.error(err);
@@ -203,7 +203,7 @@ export default function AdminDashboard({ onLogout }) {
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `cafe-pirana-data-${selectedDate}.csv`;
+      link.download = `cafe-Piranha-data-${selectedDate}.csv`;
       link.click();
       alert("📈 CSV exported successfully!");
     } catch (err) {
@@ -277,7 +277,7 @@ export default function AdminDashboard({ onLogout }) {
       {/* Header */}
       <div className="admin-header">
         <div className="admin-info">
-          <h1>🏢 Cafe Pirana - Admin Dashboard</h1>
+          <h1>🏢 Cafe Piranha - Admin Dashboard</h1>
           <p>Real-time Staff Monitoring & Reports</p>
           <div className="live-indicator">
             <span className="live-dot"></span> LIVE UPDATES

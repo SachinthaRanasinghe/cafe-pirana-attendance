@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import "./App.css";
 import Login from "./Pages/Login.jsx";
+import AdminDashboard from "./Pages/AdminDashboard.jsx"; 
 
 function App() {
   const [allowed, setAllowed] = useState(null);
@@ -8,9 +9,22 @@ function App() {
   const [message, setMessage] = useState("");
   const [coords, setCoords] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  // Allowed location (Cafe Pirana - Ella)
+  // Admin login states
+  const [adminUsername, setAdminUsername] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminLoggedIn, setAdminLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Admin credentials
+  const ADMIN_CREDENTIALS = {
+    username: "admin",
+    password: "cafepirana2024"
+  };
+
+  // Allowed location (Cafe Piranha - Ella)
   const ALLOWED_LAT = 6.845785;  
   const ALLOWED_LNG = 81.005142;
   const MAX_DISTANCE_METERS = 50;
@@ -73,7 +87,7 @@ function App() {
           setProgress(100);
           if (distance <= MAX_DISTANCE_METERS) {
             setAllowed(true);
-            setMessage("✅ Location Verified Successfully! Welcome to Cafe Pirana.");
+            setMessage("✅ Location Verified Successfully! Welcome to Cafe Piranha.");
             // Redirect to login after 2 seconds
             setTimeout(() => {
               setShowLogin(true);
@@ -81,7 +95,7 @@ function App() {
           } else {
             setAllowed(false);
             setMessage(
-              `❌ Access Restricted. You're ${distance.toFixed(1)}m away from Cafe Pirana. Please visit our Ella location to continue.`
+              `❌ Access Restricted. You're ${distance.toFixed(1)}m away from Cafe Piranha. Please visit our Ella location to continue.`
             );
           }
           setChecking(false);
@@ -102,6 +116,135 @@ function App() {
       options
     );
   };
+
+  // Admin Login Handler
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+    
+    if (!adminUsername || !adminPassword) {
+      alert("Please enter both username and password.");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    setTimeout(() => {
+      if (adminUsername === ADMIN_CREDENTIALS.username && 
+          adminPassword === ADMIN_CREDENTIALS.password) {
+        setAdminLoggedIn(true);
+      } else {
+        alert("Invalid admin credentials!");
+      }
+      setIsLoading(false);
+    }, 1000);
+  };
+
+  const handleAdminLogout = () => {
+    setAdminLoggedIn(false);
+    setAdminUsername("");
+    setAdminPassword("");
+    setShowAdminLogin(false);
+  };
+
+  const handleBackToLocation = () => {
+    setShowAdminLogin(false);
+    setAdminUsername("");
+    setAdminPassword("");
+  };
+
+  // Show admin dashboard if admin is logged in
+  if (adminLoggedIn) {
+    return <AdminDashboard onLogout={handleAdminLogout} />;
+  }
+
+  // Show admin login if admin login is requested
+  if (showAdminLogin) {
+    return (
+      <div className="app">
+        <div className="login-container">
+          {/* Cafe Piranha Branding */}
+          <div className="login-header">
+            <div className="cafe-brand">
+              <div className="cafe-logo">☕</div>
+              <div className="brand-text">
+                <h1 className="cafe-name">Cafe Piranha</h1>
+                <p className="cafe-subtitle">Admin Portal</p>
+              </div>
+            </div>
+            <p className="login-subtitle">
+              Administrator Access
+            </p>
+          </div>
+
+          {/* Admin Login Form */}
+          <form onSubmit={handleAdminLogin} className="login-form">
+            <div className="input-group">
+              <label htmlFor="adminUsername" className="input-label">
+                Admin Username
+              </label>
+              <input
+                id="adminUsername"
+                type="text"
+                placeholder="Enter admin username"
+                value={adminUsername}
+                onChange={(e) => setAdminUsername(e.target.value)}
+                className="form-input"
+                required
+              />
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="adminPassword" className="input-label">
+                Admin Password
+              </label>
+              <input
+                id="adminPassword"
+                type="password"
+                placeholder="Enter admin password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                className="form-input"
+                required
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              className={`login-btn ${isLoading ? 'loading' : ''}`}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <div className="spinner"></div>
+                  Verifying...
+                </>
+              ) : (
+                'Access Admin Panel'
+              )}
+            </button>
+
+            <div className="form-switch">
+              <button 
+                type="button"
+                className="back-btn"
+                onClick={handleBackToLocation}
+              >
+                ← Back to Location Verification
+              </button>
+            </div>
+          </form>
+
+          {/* Security Notice */}
+          <div className="security-notice">
+            <div className="security-icon">🔒</div>
+            <p>
+              Administrative access only. All activities are logged.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Show login page if location is verified
   if (showLogin) {
@@ -127,12 +270,23 @@ function App() {
                 <div className="logo-glow"></div>
               </div>
               <div className="brand-text">
-                <h1 className="cafe-name">Cafe Pirana</h1>
+                <h1 className="cafe-name">Cafe Piranha</h1>
                 <p className="cafe-subtitle">Staff Portal</p>
               </div>
             </div>
           </div>
           <p className="tagline">Secure Access • Professional Environment</p>
+          
+          {/* Admin Access Button */}
+          <div className="admin-access-section">
+            <button 
+              className="admin-access-btn"
+              onClick={() => setShowAdminLogin(true)}
+            >
+              <span className="admin-icon">⚙️</span>
+              Admin Access
+            </button>
+          </div>
         </div>
 
         {/* Main Content */}
@@ -146,7 +300,7 @@ function App() {
             
             <p className="description">
               To maintain security and ensure proper attendance tracking, 
-              access to the staff portal is restricted to Cafe Pirana premises in Ella, Sri Lanka.
+              access to the staff portal is restricted to Cafe Piranha premises in Ella, Sri Lanka.
             </p>
 
             <div className="requirements-grid">
@@ -154,7 +308,7 @@ function App() {
                 <div className="requirement-icon">🏢</div>
                 <div className="requirement-content">
                   <h4>Physical Presence</h4>
-                  <p>Must be at Cafe Pirana location</p>
+                  <p>Must be at Cafe Piranha location</p>
                 </div>
               </div>
               <div className="requirement-card">

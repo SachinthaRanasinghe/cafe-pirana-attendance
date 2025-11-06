@@ -176,12 +176,12 @@ export default function Login() {
   return (
     <div className="app">
       <div className="login-container">
-        {/* Cafe Pirana Branding */}
+        {/* Cafe Piranha Branding */}
         <div className="login-header">
           <div className="cafe-brand">
             <div className="cafe-logo">☕</div>
             <div className="brand-text">
-              <h1 className="cafe-name">Cafe Pirana</h1>
+              <h1 className="cafe-name">Cafe Piranha</h1>
               <p className="cafe-subtitle">
                 {isAdminLogin ? "Admin Portal" : isRegistering ? "Staff Registration" : "Staff Portal"}
               </p>
@@ -271,13 +271,7 @@ export default function Login() {
                 }
               </button>
               
-              <button 
-                type="button"
-                className="admin-btn"
-                onClick={() => setIsAdminLogin(true)}
-              >
-                🔒 Admin Login
-              </button>
+              
             </div>
           </form>
         ) : (
