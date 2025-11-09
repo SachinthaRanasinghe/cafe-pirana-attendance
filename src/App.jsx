@@ -25,8 +25,8 @@ function App() {
   };
 
   // Allowed location (Cafe Piranha - Ella)
- const ALLOWED_LAT = 6.871788;  
-const ALLOWED_LNG = 81.056581;
+ const ALLOWED_LAT = 6.871796;  
+const ALLOWED_LNG = 81.057271;
 
   const MAX_DISTANCE_METERS = 50;
 
