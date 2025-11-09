@@ -10,12 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "file-saver": "^2.0.5",
     "firebase": "^12.5.0",
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
+    "prop-types": "^15.8.1",
     "react": "^19.1.1",
+    "react-csv": "^2.2.2",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.5"
+    "react-router-dom": "^7.9.5",
+    "recharts": "^3.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

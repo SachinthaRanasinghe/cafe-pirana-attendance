@@ -5,6 +5,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import "./Login.css";
 import StaffDashboard from "./StaffDashboard.jsx";
 import AdminDashboard from "./AdminDashboard.jsx";
+import AdvancedStaffDashboard from "./AdvancedStaffDashboard.jsx";
 
 export default function Login() {
   const [isAdminLogin, setIsAdminLogin] = useState(false);
