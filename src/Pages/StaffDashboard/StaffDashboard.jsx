@@ -34,9 +34,9 @@ export default function StaffDashboard({ staffData, onLogout }) {
   const { staffName, staffId, uid } = staffData;
 
   // Allowed location (Cafe Piranha - Ella)
-  const ALLOWED_LAT = 6.844030;  
-  const ALLOWED_LNG = 81.005913;
-  const MAX_DISTANCE_METERS = 500;
+  const ALLOWED_LAT = 6.871796;  
+  const ALLOWED_LNG = 81.057271;
+  const MAX_DISTANCE_METERS = 100;
 
   // Helper functions for shift-based tracking
   const getShiftDate = (timestamp) => {
@@ -638,6 +638,10 @@ export default function StaffDashboard({ staffData, onLogout }) {
         >
           <span className="nav-icon">📅</span>
           <span className="nav-label">Availability</span>
+        </button>
+        <button className="nav-item logout-item" onClick={handleLogout}>
+          <span className="nav-icon">🚪</span>
+          <span className="nav-label">Logout</span>
         </button>
       </nav>
     </div>
