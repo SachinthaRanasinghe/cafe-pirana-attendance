@@ -5,7 +5,6 @@ import {
   onSnapshot, 
   query,
   where,
-  orderBy,
   doc
 } from "firebase/firestore";
 import { db } from "../../firebase";
@@ -16,7 +15,8 @@ export default function SalaryView({ staffData, onLogout }) {
   const [salary, setSalary] = useState(null);
   const [advanceRequests, setAdvanceRequests] = useState([]);
   const [otRequests, setOtRequests] = useState([]);
-  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
+  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().substring(0, 7));
+  const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,6 +27,7 @@ export default function SalaryView({ staffData, onLogout }) {
   useEffect(() => {
     if (!uid) {
       console.error("No UID available for salary fetch");
+      setLoading(false);
       return;
     }
 
@@ -36,6 +37,7 @@ export default function SalaryView({ staffData, onLogout }) {
       } else {
         setSalary(null);
       }
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -43,10 +45,7 @@ export default function SalaryView({ staffData, onLogout }) {
 
   // Fetch advance requests
   useEffect(() => {
-    if (!uid) {
-      console.error("No UID available for advance requests fetch");
-      return;
-    }
+    if (!uid) return;
 
     const q = query(
       collection(db, "advanceRequests"),
@@ -68,10 +67,7 @@ export default function SalaryView({ staffData, onLogout }) {
 
   // Fetch OT requests
   useEffect(() => {
-    if (!uid) {
-      console.error("No UID available for OT requests fetch");
-      return;
-    }
+    if (!uid) return;
 
     const q = query(
       collection(db, "otRequests"),
@@ -95,8 +91,6 @@ export default function SalaryView({ staffData, onLogout }) {
   const calculateMonthStats = () => {
     const basicSalary = salary?.monthlySalary || 0;
     
-    // Calculate approved advances for current month
-    // Use shiftMonth if available, otherwise fall back to month field
     const currentMonthAdvances = advanceRequests
       .filter(req => {
         const requestMonth = req.shiftMonth || req.month;
@@ -104,8 +98,6 @@ export default function SalaryView({ staffData, onLogout }) {
       })
       .reduce((sum, req) => sum + (req.amount || 0), 0);
 
-    // Calculate approved OT for current month
-    // Use shiftMonth if available, otherwise fall back to month field
     const currentMonthOT = otRequests
       .filter(req => {
         const requestMonth = req.shiftMonth || req.month;
@@ -113,7 +105,6 @@ export default function SalaryView({ staffData, onLogout }) {
       })
       .reduce((sum, req) => sum + (req.otAmount || 0), 0);
 
-    // Calculate net salary (basic + OT - advances)
     const netSalary = Math.max(0, basicSalary + currentMonthOT - currentMonthAdvances);
 
     return {
@@ -121,7 +112,7 @@ export default function SalaryView({ staffData, onLogout }) {
       advances: currentMonthAdvances,
       ot: currentMonthOT,
       netSalary,
-      remainingSalary: Math.max(0, basicSalary - currentMonthAdvances) // Salary remaining after advances (before OT)
+      remainingSalary: Math.max(0, basicSalary - currentMonthAdvances)
     };
   };
 
@@ -149,16 +140,6 @@ export default function SalaryView({ staffData, onLogout }) {
   };
 
   const advanceStats = getAdvanceStats();
-
-  const showNotification = (msg, type = "info") => {
-    const styles = {
-      success: "background: #4CAF50; color: white; padding: 12px; border-radius: 4px;",
-      error: "background: #f44336; color: white; padding: 12px; border-radius: 4px;",
-      info: "background: #2196F3; color: white; padding: 12px; border-radius: 4px;"
-    };
-    console.log(`%c${msg}`, styles[type] || styles.info);
-    alert(msg);
-  };
 
   const isActiveRoute = (path) => location.pathname.includes(path);
 
@@ -189,358 +170,125 @@ export default function SalaryView({ staffData, onLogout }) {
 
   return (
     <div className="salary-view">
-      {/* Navigation Header */}
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <div className="brand-icon">🏪</div>
-          <div className="brand-text">
-            <h2>Cafe Piranha</h2>
-            <span>Staff Portal</span>
+      {/* Mobile Header */}
+      <header className="mobile-header">
+        <div className="header-content">
+          <div className="header-brand">
+            <div className="brand-icon">🏪</div>
+            <div className="brand-text">
+              <h1>Cafe Piranha</h1>
+              <span>Salary Overview</span>
+            </div>
+          </div>
+          
+          <div className="header-user">
+            <div className="user-avatar">
+              {staffName?.charAt(0).toUpperCase()}
+            </div>
           </div>
         </div>
         
-        <div className="nav-user">
-          <div className="user-avatar">
-            {staffName?.charAt(0).toUpperCase()}
-          </div>
-          <div className="user-info">
-            <span className="user-name">{staffName}</span>
-            <span className="user-id">ID: {staffId}</span>
-          </div>
+        <div className="user-info-mobile">
+          <span className="user-name">{staffName}</span>
+          <span className="user-id">ID: {staffId}</span>
         </div>
-      </nav>
+      </header>
 
-      {/* Main Dashboard Content */}
-      <div className="dashboard-container">
-        {/* Sidebar Navigation */}
-        <aside className="sidebar">
-          <nav className="sidebar-nav">
-            <button 
-              className={`nav-item ${isActiveRoute('/staff') ? 'active' : ''}`}
-              onClick={() => safeNavigate('/staff')}
-            >
-              <span className="nav-icon">📊</span>
-              <span className="nav-text">Dashboard</span>
-            </button>
-            
-            <button 
-              className={`nav-item ${isActiveRoute('/salary') ? 'active' : ''}`}
-              onClick={() => safeNavigate('/staff/salary')}
-            >
-              <span className="nav-icon">💰</span>
-              <span className="nav-text">Salary</span>
-            </button>
-            
-            <button 
-              className={`nav-item ${isActiveRoute('/advance') ? 'active' : ''}`}
-              onClick={() => safeNavigate('/staff/advance')}
-            >
-              <span className="nav-icon">📋</span>
-              <span className="nav-text">Request Advance</span>
-            </button>
-
-            {/* ADDED AVAILABILITY BUTTON */}
-            <button 
-              className={`nav-item ${isActiveRoute('/availability') ? 'active' : ''}`}
-              onClick={() => safeNavigate('/staff/availability')}
-            >
-              <span className="nav-icon">📅</span>
-              <span className="nav-text">Availability</span>
-            </button>
-            
-            <div className="nav-divider"></div>
-            
-            <button className="nav-item logout-item" onClick={handleLogout}>
-              <span className="nav-icon">🚪</span>
-              <span className="nav-text">Logout</span>
-            </button>
-          </nav>
-        </aside>
-
-        {/* Main Content Area */}
-        <main className="dashboard-main">
-          {/* Welcome Header */}
-          <div className="welcome-header">
-            <div className="welcome-text">
-              <h1>Salary Overview</h1>
-              <p>View your salary breakdown and history</p>
-            </div>
-            <div className="date-display">
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </div>
+      {/* Main Content */}
+      <main className="mobile-main">
+        {/* Welcome Section */}
+        <section className="welcome-section">
+          <div className="welcome-content">
+            <h2>Salary Overview</h2>
+            <p>Your earnings and deductions</p>
           </div>
+          <div className="date-display-mobile">
+            {new Date().toLocaleDateString('en-US', { 
+              weekday: 'short', 
+              month: 'short', 
+              day: 'numeric' 
+            })}
+          </div>
+        </section>
 
-          {/* Month Selector */}
-          <div className="filter-card">
+        {/* Month Selector */}
+        <section className="filter-section">
+          <div className="filter-card-mobile">
             <div className="filter-header">
               <h3>Select Month</h3>
               <div className="current-month-badge">
                 {new Date(currentMonth + '-01').toLocaleDateString('en-US', { 
-                  month: 'long', 
+                  month: 'short', 
                   year: 'numeric' 
                 })}
               </div>
             </div>
-            <div className="filter-controls">
-              <input 
-                type="month" 
-                value={currentMonth}
-                onChange={(e) => setCurrentMonth(e.target.value)}
-                className="month-input"
-              />
+            <input 
+              type="month" 
+              value={currentMonth}
+              onChange={(e) => setCurrentMonth(e.target.value)}
+              className="month-input-mobile"
+            />
+          </div>
+        </section>
+
+        {loading ? (
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>Loading salary data...</p>
+          </div>
+        ) : !salary ? (
+          <div className="warning-card-mobile">
+            <div className="warning-header">
+              <div className="warning-icon">💰</div>
+              <h3>Salary Not Configured</h3>
+            </div>
+            <div className="warning-content">
+              <p>Your salary has not been set up yet. Please contact administration.</p>
             </div>
           </div>
-
-          {!salary ? (
-            <div className="warning-card">
-              <div className="warning-header">
-                <div className="warning-icon">💰</div>
-                <h3>Salary Not Configured</h3>
+        ) : (
+          <>
+            {/* Quick Stats */}
+            <section className="quick-stats-salary">
+              <div className="stat-item-salary">
+                <div className="stat-icon-salary primary">💼</div>
+                <div className="stat-content-salary">
+                  <div className="stat-value">Rs. {monthStats.basicSalary.toLocaleString()}</div>
+                  <div className="stat-label">Basic Salary</div>
+                </div>
               </div>
-              <div className="warning-content">
-                <p>Your salary has not been set up yet. Please contact administration to configure your salary details.</p>
+              
+              <div className="stat-item-salary">
+                <div className="stat-icon-salary success">🕒</div>
+                <div className="stat-content-salary">
+                  <div className="stat-value">+{monthStats.ot.toLocaleString()}</div>
+                  <div className="stat-label">Overtime</div>
+                </div>
               </div>
-            </div>
-          ) : (
-            <>
-              {/* Salary Summary Cards */}
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <div className="stat-icon primary">💼</div>
-                  <div className="stat-content">
-                    <h3>Rs. {monthStats.basicSalary.toLocaleString()}</h3>
-                    <p>Basic Salary</p>
-                  </div>
-                </div>
-                
-                <div className="stat-card">
-                  <div className="stat-icon success">🕒</div>
-                  <div className="stat-content">
-                    <h3>+ Rs. {monthStats.ot.toLocaleString()}</h3>
-                    <p>Overtime Earnings</p>
-                    <div className="stat-detail">
-                      {otRequests.filter(ot => {
-                        const otMonth = ot.shiftMonth || ot.month;
-                        return otMonth === currentMonth && ot.status === "approved";
-                      }).length} approved sessions
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="stat-card">
-                  <div className="stat-icon warning">📋</div>
-                  <div className="stat-content">
-                    <h3>- Rs. {monthStats.advances.toLocaleString()}</h3>
-                    <p>Advance Deductions</p>
-                    <div className="stat-detail">
-                      {advanceStats.approvedCount} advances • {advanceStats.pendingCount} pending
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="stat-card highlight">
-                  <div className="stat-icon accent">💰</div>
-                  <div className="stat-content">
-                    <h3>Rs. {monthStats.netSalary.toLocaleString()}</h3>
-                    <p>Net Salary</p>
-                    <div className="stat-detail">
-                      Final amount for {new Date(currentMonth + '-01').toLocaleDateString('en-US', { month: 'long' })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-icon secondary">📊</div>
-                  <div className="stat-content">
-                    <h3>Rs. {monthStats.remainingSalary.toLocaleString()}</h3>
-                    <p>Remaining Base Salary</p>
-                    <div className="stat-detail">
-                      After advances, before OT
-                    </div>
-                  </div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-icon info">⚡</div>
-                  <div className="stat-content">
-                    <h3>{Math.round((monthStats.advances / monthStats.basicSalary) * 100)}%</h3>
-                    <p>Advance Usage</p>
-                    <div className="stat-detail">
-                      of monthly salary
-                    </div>
-                  </div>
+              
+              <div className="stat-item-salary">
+                <div className="stat-icon-salary warning">📋</div>
+                <div className="stat-content-salary">
+                  <div className="stat-value">-{monthStats.advances.toLocaleString()}</div>
+                  <div className="stat-label">Advances</div>
                 </div>
               </div>
 
-              {/* Overtime History */}
-              <div className="history-card">
-                <div className="card-header">
-                  <h2>Overtime History</h2>
-                  <span className="badge">
-                    {otRequests.filter(ot => {
-                      const otMonth = ot.shiftMonth || ot.month;
-                      return otMonth === currentMonth;
-                    }).length}
-                  </span>
+              <div className="stat-item-salary highlight">
+                <div className="stat-icon-salary accent">💰</div>
+                <div className="stat-content-salary">
+                  <div className="stat-value">Rs. {monthStats.netSalary.toLocaleString()}</div>
+                  <div className="stat-label">Net Salary</div>
                 </div>
-                
-                {otRequests.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-icon">🕒</div>
-                    <h3>No Overtime Records</h3>
-                    <p>Your approved overtime sessions will appear here</p>
-                  </div>
-                ) : (
-                  <div className="history-list">
-                    {otRequests
-                      .filter(ot => {
-                        const otMonth = ot.shiftMonth || ot.month;
-                        return otMonth === currentMonth;
-                      })
-                      .map(ot => (
-                      <div key={ot.id} className={`history-item ${ot.status}`}>
-                        <div className="history-main">
-                          <div className="history-amount">
-                            <div className="amount-primary">Rs. {ot.otAmount || 0}</div>
-                            <div className="amount-detail">
-                              {ot.otHours || 0} hours
-                              {ot.isNightShift && " 🌙"}
-                              {ot.crossMidnight && " ⏰"}
-                            </div>
-                          </div>
-                          <div className={`status-badge ${ot.status}`}>
-                            {ot.status === "pending" && "⏳ Pending"}
-                            {ot.status === "approved" && "✅ Approved"}
-                            {ot.status === "rejected" && "❌ Rejected"}
-                          </div>
-                        </div>
-                        
-                        <div className="history-details">
-                          <div className="history-date">
-                            {ot.date || 'Unknown date'}
-                            {ot.isNightShift && " (Night Shift)"}
-                          </div>
-                          
-                          {ot.sessionId && (
-                            <div className="history-reference">
-                              Session: {ot.sessionId.substring(0, 8)}...
-                            </div>
-                          )}
-                          
-                          {ot.status === "rejected" && ot.rejectionReason && (
-                            <div className="rejection-reason">
-                              <strong>Note:</strong> {ot.rejectionReason}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {otRequests.filter(ot => {
-                      const otMonth = ot.shiftMonth || ot.month;
-                      return otMonth === currentMonth;
-                    }).length === 0 && (
-                      <div className="empty-state">
-                        <div className="empty-icon">📅</div>
-                        <h3>No Overtime This Month</h3>
-                        <p>No overtime records found for selected month</p>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
+            </section>
 
-              {/* Advance History */}
-              <div className="history-card">
-                <div className="card-header">
-                  <h2>Advance History</h2>
-                  <span className="badge">
-                    {advanceRequests.filter(adv => {
-                      const advanceMonth = adv.shiftMonth || adv.month;
-                      return advanceMonth === currentMonth;
-                    }).length}
-                  </span>
-                </div>
-                
-                {advanceRequests.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-icon">📋</div>
-                    <h3>No Advance Requests</h3>
-                    <p>Your advance request history will appear here</p>
-                  </div>
-                ) : (
-                  <div className="history-list">
-                    {advanceRequests
-                      .filter(adv => {
-                        const advanceMonth = adv.shiftMonth || adv.month;
-                        return advanceMonth === currentMonth;
-                      })
-                      .map(advance => (
-                      <div key={advance.id} className={`history-item ${advance.status}`}>
-                        <div className="history-main">
-                          <div className="history-amount">
-                            <div className="amount-primary">Rs. {advance.amount?.toLocaleString() || '0'}</div>
-                            <div className="amount-detail">
-                              {advance.shiftMonth === currentMonth || advance.month === currentMonth ? 'This month' : (advance.shiftMonth || advance.month)}
-                            </div>
-                          </div>
-                          <div className={`status-badge ${advance.status}`}>
-                            {advance.status === "pending" && "⏳ Pending"}
-                            {advance.status === "approved" && "✅ Approved"}
-                            {advance.status === "rejected" && "❌ Rejected"}
-                          </div>
-                        </div>
-                        
-                        <div className="history-details">
-                          <div className="history-date">
-                            {advance.requestDate ? new Date(advance.requestDate).toLocaleDateString() : 'Unknown date'}
-                          </div>
-                          
-                          {advance.reason && advance.reason !== "No reason provided" && (
-                            <div className="history-reason">
-                              {advance.reason}
-                            </div>
-                          )}
-                          
-                          {advance.approvedAt && (
-                            <div className="history-processed">
-                              {advance.status === "approved" ? "Approved" : "Rejected"} on{" "}
-                              {new Date(advance.approvedAt).toLocaleDateString()}
-                            </div>
-                          )}
-                          
-                          {advance.rejectionReason && (
-                            <div className="rejection-reason">
-                              <strong>Reason:</strong> {advance.rejectionReason}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {advanceRequests.filter(adv => {
-                      const advanceMonth = adv.shiftMonth || adv.month;
-                      return advanceMonth === currentMonth;
-                    }).length === 0 && (
-                      <div className="empty-state">
-                        <div className="empty-icon">📅</div>
-                        <h3>No Advances This Month</h3>
-                        <p>No advance records found for selected month</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Summary Section */}
-              <div className="summary-card">
-                <div className="summary-header">
-                  <h3>Monthly Summary</h3>
+            {/* Summary Card */}
+            <section className="summary-section">
+              <div className="summary-card-mobile">
+                <div className="summary-header-mobile">
+                  <h3>Monthly Breakdown</h3>
                   <div className="summary-period">
                     {new Date(currentMonth + '-01').toLocaleDateString('en-US', { 
                       month: 'long', 
@@ -548,30 +296,240 @@ export default function SalaryView({ staffData, onLogout }) {
                     })}
                   </div>
                 </div>
-                <div className="summary-content">
-                  <div className="summary-item">
+                <div className="summary-content-mobile">
+                  <div className="summary-item-mobile">
                     <span className="summary-label">Basic Salary:</span>
                     <span className="summary-value">Rs. {monthStats.basicSalary.toLocaleString()}</span>
                   </div>
-                  <div className="summary-item positive">
+                  <div className="summary-item-mobile positive">
                     <span className="summary-label">Overtime Earnings:</span>
                     <span className="summary-value">+ Rs. {monthStats.ot.toLocaleString()}</span>
                   </div>
-                  <div className="summary-item negative">
+                  <div className="summary-item-mobile negative">
                     <span className="summary-label">Advance Deductions:</span>
                     <span className="summary-value">- Rs. {monthStats.advances.toLocaleString()}</span>
                   </div>
                   <div className="summary-divider"></div>
-                  <div className="summary-item total">
+                  <div className="summary-item-mobile total">
                     <span className="summary-label">Net Salary:</span>
                     <span className="summary-value">Rs. {monthStats.netSalary.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
-            </>
-          )}
-        </main>
-      </div>
+            </section>
+
+            {/* Overtime History */}
+            <section className="history-section">
+              <div className="section-header">
+                <h3>Overtime History</h3>
+                <span className="session-count">
+                  {otRequests.filter(ot => {
+                    const otMonth = ot.shiftMonth || ot.month;
+                    return otMonth === currentMonth;
+                  }).length}
+                </span>
+              </div>
+
+              {otRequests.length === 0 ? (
+                <div className="empty-sessions">
+                  <div className="empty-icon">🕒</div>
+                  <p>No overtime records</p>
+                </div>
+              ) : (
+                <div className="history-list-mobile">
+                  {otRequests
+                    .filter(ot => {
+                      const otMonth = ot.shiftMonth || ot.month;
+                      return otMonth === currentMonth;
+                    })
+                    .map(ot => (
+                    <div key={ot.id} className={`history-item-mobile ${ot.status}`}>
+                      <div className="history-header-mobile">
+                        <div className="history-amount-mobile">
+                          Rs. {ot.otAmount || 0}
+                        </div>
+                        <div className={`status-badge-history ${ot.status}`}>
+                          {ot.status === "pending" && "⏳"}
+                          {ot.status === "approved" && "✅"}
+                          {ot.status === "rejected" && "❌"}
+                        </div>
+                      </div>
+                      
+                      <div className="history-details-mobile">
+                        <div className="history-date-mobile">
+                          {ot.date || 'Unknown date'}
+                          {ot.isNightShift && " 🌙"}
+                        </div>
+                        
+                        <div className="history-hours-mobile">
+                          {ot.otHours || 0} hours
+                          {ot.crossMidnight && " ⏰"}
+                        </div>
+                        
+                        {ot.status === "rejected" && ot.rejectionReason && (
+                          <div className="rejection-reason-mobile">
+                            {ot.rejectionReason}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {otRequests.filter(ot => {
+                    const otMonth = ot.shiftMonth || ot.month;
+                    return otMonth === currentMonth;
+                  }).length === 0 && (
+                    <div className="empty-sessions">
+                      <div className="empty-icon">📅</div>
+                      <p>No overtime this month</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {/* Advance History */}
+            <section className="history-section">
+              <div className="section-header">
+                <h3>Advance History</h3>
+                <span className="session-count">
+                  {advanceRequests.filter(adv => {
+                    const advanceMonth = adv.shiftMonth || adv.month;
+                    return advanceMonth === currentMonth;
+                  }).length}
+                </span>
+              </div>
+
+              {advanceRequests.length === 0 ? (
+                <div className="empty-sessions">
+                  <div className="empty-icon">📋</div>
+                  <p>No advance requests</p>
+                </div>
+              ) : (
+                <div className="history-list-mobile">
+                  {advanceRequests
+                    .filter(adv => {
+                      const advanceMonth = adv.shiftMonth || adv.month;
+                      return advanceMonth === currentMonth;
+                    })
+                    .map(advance => (
+                    <div key={advance.id} className={`history-item-mobile ${advance.status}`}>
+                      <div className="history-header-mobile">
+                        <div className="history-amount-mobile">
+                          Rs. {advance.amount?.toLocaleString() || '0'}
+                        </div>
+                        <div className={`status-badge-history ${advance.status}`}>
+                          {advance.status === "pending" && "⏳"}
+                          {advance.status === "approved" && "✅"}
+                          {advance.status === "rejected" && "❌"}
+                        </div>
+                      </div>
+                      
+                      <div className="history-details-mobile">
+                        <div className="history-date-mobile">
+                          {advance.requestDate ? 
+                            new Date(advance.requestDate).toLocaleDateString() : 'Unknown date'}
+                        </div>
+                        
+                        {advance.reason && advance.reason !== "No reason provided" && (
+                          <div className="history-reason-mobile">
+                            {advance.reason}
+                          </div>
+                        )}
+                        
+                        {advance.approvedAt && (
+                          <div className="history-processed-mobile">
+                            {advance.status === "approved" ? "Approved" : "Rejected"} •{" "}
+                            {new Date(advance.approvedAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {advanceRequests.filter(adv => {
+                    const advanceMonth = adv.shiftMonth || adv.month;
+                    return advanceMonth === currentMonth;
+                  }).length === 0 && (
+                    <div className="empty-sessions">
+                      <div className="empty-icon">📅</div>
+                      <p>No advances this month</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {/* Additional Stats */}
+            <section className="stats-section">
+              <div className="stats-grid-mobile">
+                <div className="stat-card-mobile">
+                  <div className="stat-content-mobile">
+                    <div className="stat-number">{advanceStats.approvedCount}</div>
+                    <div className="stat-description">Approved Advances</div>
+                  </div>
+                </div>
+                
+                <div className="stat-card-mobile">
+                  <div className="stat-content-mobile">
+                    <div className="stat-number">{advanceStats.pendingCount}</div>
+                    <div className="stat-description">Pending Advances</div>
+                  </div>
+                </div>
+                
+                <div className="stat-card-mobile">
+                  <div className="stat-content-mobile">
+                    <div className="stat-number">
+                      {Math.round((monthStats.advances / monthStats.basicSalary) * 100)}%
+                    </div>
+                    <div className="stat-description">Advance Usage</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </>
+        )}
+      </main>
+
+      {/* Bottom Navigation */}
+      <nav className="mobile-bottom-nav">
+        <button 
+          className={`nav-item ${isActiveRoute('/staff') && !isActiveRoute('/staff/salary') && !isActiveRoute('/staff/advance') && !isActiveRoute('/staff/availability') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/staff')}
+        >
+          <span className="nav-icon">📊</span>
+          <span className="nav-label">Dashboard</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/staff/salary') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/staff/salary')}
+        >
+          <span className="nav-icon">💰</span>
+          <span className="nav-label">Salary</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/staff/advance') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/staff/advance')}
+        >
+          <span className="nav-icon">📋</span>
+          <span className="nav-label">Advance</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/staff/availability') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/staff/availability')}
+        >
+          <span className="nav-icon">📅</span>
+          <span className="nav-label">Availability</span>
+        </button>
+
+        <button className="nav-item logout-item" onClick={handleLogout}>
+          <span className="nav-icon">🚪</span>
+          <span className="nav-label">Logout</span>
+        </button>
+      </nav>
     </div>
   );
 }

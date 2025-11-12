@@ -35,7 +35,7 @@ function App() {
   const [staffLoggedIn, setStaffLoggedIn] = useState(false);
   const [staffData, setStaffData] = useState(null);
 
-  // Admin credentials - Now using email for Firebase Auth
+  // Admin credentials
   const ADMIN_CREDENTIALS = {
     email: "admin@cafepiranha.com",
     password: "cafepirana2024"
@@ -72,7 +72,6 @@ function App() {
     setIsLoading(true);
     
     try {
-      // Sign in with Firebase Authentication
       const userCredential = await signInWithEmailAndPassword(
         auth, 
         adminEmail, 
@@ -81,7 +80,6 @@ function App() {
       
       const user = userCredential.user;
       
-      // Additional check to ensure it's the admin account
       if (user.email === ADMIN_CREDENTIALS.email) {
         setAdminLoggedIn(true);
         setAdminEmail("");
@@ -175,14 +173,14 @@ function App() {
           {/* Cafe Piranha Branding */}
           <div className="login-header">
             <div className="cafe-brand">
-              <div className="cafe-logo">☕</div>
+              <div className="cafe-logo">🏪</div>
               <div className="brand-text">
                 <h1 className="cafe-name">Cafe Piranha</h1>
                 <p className="cafe-subtitle">Admin Portal</p>
               </div>
             </div>
             <p className="login-subtitle">
-              Administrator Access - Firebase Authentication
+              Secure Administrator Access
             </p>
           </div>
 
@@ -243,25 +241,6 @@ function App() {
               </button>
             </div>
           </form>
-
-          {/* Admin Account Info */}
-          <div className="admin-info-notice">
-            <div className="info-icon">ℹ️</div>
-            <div className="info-content">
-              <strong>Admin Account:</strong>
-              <p>Email: admin@cafepiranha.com</p>
-              <p>Password: cafepirana2024</p>
-              <small>Make sure this account exists in Firebase Authentication</small>
-            </div>
-          </div>
-
-          {/* Security Notice */}
-          <div className="security-notice">
-            <div className="security-icon">🔒</div>
-            <p>
-              Administrative access only. All activities are logged and authenticated.
-            </p>
-          </div>
         </div>
       </div>
     );
@@ -278,65 +257,54 @@ function App() {
     );
   }
 
+  // Main Landing Page
   return (
     <div className="app">
-      <div className="location-container">
-        {/* Animated Background Elements */}
-        <div className="floating-shapes">
-          <div className="shape shape-1"></div>
-          <div className="shape shape-2"></div>
-          <div className="shape shape-3"></div>
-        </div>
-
-        {/* Header */}
-        <div className="header">
-          <div className="logo">
-            <div className="cafe-brand">
-              <div className="cafe-logo-container">
-                <span className="cafe-logo">☕</span>
-                <div className="logo-glow"></div>
-              </div>
-              <div className="brand-text">
-                <h1 className="cafe-name">Cafe Piranha</h1>
-                <p className="cafe-subtitle">Staff Management System</p>
-              </div>
-            </div>
-          </div>
-          <p className="tagline">Professional Environment • Secure Access</p>
+      <div className="landing-container">
+        {/* Animated Background */}
+        <div className="background-animation">
+          <div className="floating-coffee">☕</div>
+          <div className="floating-croissant">🥐</div>
+          <div className="floating-spoon">🥄</div>
         </div>
 
         {/* Main Content */}
-        <div className="content">
-          <div className="welcome-card">
-            <div className="card-header">
-              <div className="header-icon">🚪</div>
-              <h2>Welcome to Cafe Piranha</h2>
-              <p className="card-subtitle">Choose Your Access Method</p>
+        <div className="main-content">
+          {/* Hero Section */}
+          <div className="hero-section">
+            <div className="logo-container">
+              <div className="main-logo">
+                <span className="logo-icon">🏪</span>
+                <div className="logo-shine"></div>
+              </div>
+              <h1 className="hero-title">
+                Cafe <span className="brand-accent">Piranha</span>
+              </h1>
+              <p className="hero-subtitle">
+                Staff Management Portal
+              </p>
             </div>
-            
-            <p className="description">
-              Access the staff management system using one of the options below. 
-              Staff members can log in directly, while administrators have separate secure access.
-            </p>
+          </div>
 
-            {/* Access Options Grid */}
-            <div className="access-grid">
-              {/* Staff Access Card */}
-              <div className="access-card staff-access">
-                <div className="access-icon">👥</div>
-                <div className="access-content">
+          {/* Access Cards */}
+          <div className="access-section">
+            <div className="access-cards">
+              {/* Staff Access */}
+              <div className="access-card staff-card">
+                <div className="card-glow"></div>
+                <div className="card-icon">👥</div>
+                <div className="card-content">
                   <h3>Staff Portal</h3>
-                  <p>Access your personal dashboard, track hours, request advances, and manage availability</p>
-                  <ul className="access-features">
-                    <li>✅ Clock in/out tracking</li>
-                    <li>✅ Salary overview</li>
-                    <li>✅ Advance requests</li>
-                    <li>✅ Availability scheduling</li>
-                    <li>✅ Overtime tracking</li>
+                  <p>Access your personal workspace</p>
+                  <ul className="feature-list">
+                    <li>• Track hours & salary</li>
+                    <li>• Request advances</li>
+                    <li>• Manage availability</li>
+                    <li>• View schedules</li>
                   </ul>
                 </div>
                 <button 
-                  className="access-btn primary"
+                  className="access-btn staff-btn"
                   onClick={() => setShowLogin(true)}
                 >
                   <span className="btn-icon">🔑</span>
@@ -344,22 +312,22 @@ function App() {
                 </button>
               </div>
 
-              {/* Admin Access Card */}
-              <div className="access-card admin-access">
-                <div className="access-icon">⚙️</div>
-                <div className="access-content">
+              {/* Admin Access */}
+              <div className="access-card admin-card">
+                <div className="card-glow"></div>
+                <div className="card-icon">⚙️</div>
+                <div className="card-content">
                   <h3>Admin Portal</h3>
-                  <p>Manage staff, salaries, approve requests, and oversee system operations</p>
-                  <ul className="access-features">
-                    <li>🔒 Staff management</li>
-                    <li>🔒 Salary configuration</li>
-                    <li>🔒 Advance approvals</li>
-                    <li>🔒 OT management</li>
-                    <li>🔒 Availability overview</li>
+                  <p>Manage cafe operations</p>
+                  <ul className="feature-list">
+                    <li>• Staff management</li>
+                    <li>• Salary processing</li>
+                    <li>• Request approvals</li>
+                    <li>• System oversight</li>
                   </ul>
                 </div>
                 <button 
-                  className="access-btn secondary"
+                  className="access-btn admin-btn"
                   onClick={() => setShowAdminLogin(true)}
                 >
                   <span className="btn-icon">🔒</span>
@@ -367,72 +335,35 @@ function App() {
                 </button>
               </div>
             </div>
+          </div>
 
-            {/* Quick Stats */}
-            <div className="quick-stats">
-              <div className="stat-item">
-                <div className="stat-number">24/7</div>
-                <div className="stat-label">System Access</div>
+          {/* Quick Features */}
+          <div className="features-section">
+            <div className="features-grid">
+              <div className="feature-item">
+                <div className="feature-icon">⏰</div>
+                <span>Time Tracking</span>
               </div>
-              <div className="stat-item">
-                <div className="stat-number">Secure</div>
-                <div className="stat-label">Authentication</div>
+              <div className="feature-item">
+                <div className="feature-icon">💰</div>
+                <span>Salary Management</span>
               </div>
-              <div className="stat-item">
-                <div className="stat-number">Real-time</div>
-                <div className="stat-label">Updates</div>
+              <div className="feature-item">
+                <div className="feature-icon">📋</div>
+                <span>Advance Requests</span>
               </div>
-              <div className="stat-item">
-                <div className="stat-number">Mobile</div>
-                <div className="stat-label">Friendly</div>
-              </div>
-            </div>
-
-            {/* System Information */}
-            <div className="system-info">
-              <div className="info-section">
-                <h4>📋 System Features</h4>
-                <div className="features-grid">
-                  <div className="feature-item">
-                    <span className="feature-icon">⏰</span>
-                    <span>Time Tracking</span>
-                  </div>
-                  <div className="feature-item">
-                    <span className="feature-icon">💰</span>
-                    <span>Salary Management</span>
-                  </div>
-                  <div className="feature-item">
-                    <span className="feature-icon">📋</span>
-                    <span>Advance Requests</span>
-                  </div>
-                  <div className="feature-item">
-                    <span className="feature-icon">🕒</span>
-                    <span>Overtime Tracking</span>
-                  </div>
-                  <div className="feature-item">
-                    <span className="feature-icon">📅</span>
-                    <span>Availability Scheduling</span>
-                  </div>
-                  <div className="feature-item">
-                    <span className="feature-icon">📊</span>
-                    <span>Reports & Analytics</span>
-                  </div>
-                </div>
+              <div className="feature-item">
+                <div className="feature-icon">📅</div>
+                <span>Scheduling</span>
               </div>
             </div>
           </div>
 
           {/* Security Footer */}
           <div className="security-footer">
-            <div className="security-notice">
-              <div className="security-badge">
-                <div className="security-icon">🔒</div>
-                <div className="security-glow"></div>
-              </div>
-              <div className="security-text">
-                <strong>Enterprise Security Protocol</strong>
-                <p>This system employs secure authentication and role-based access control. All activities are monitored and logged for security purposes.</p>
-              </div>
+            <div className="security-badge">
+              <div className="lock-icon">🔒</div>
+              <span>Secure & Private</span>
             </div>
           </div>
         </div>

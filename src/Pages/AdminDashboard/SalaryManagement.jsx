@@ -7,7 +7,6 @@ import {
   setDoc,
   query,
   orderBy,
-  updateDoc,
   where,
   getDocs
 } from "firebase/firestore";
@@ -25,6 +24,7 @@ export default function SalaryManagement({ onLogout }) {
   const [isEditing, setIsEditing] = useState(false);
   const [approvedAdvances, setApprovedAdvances] = useState({});
   const [otRequests, setOtRequests] = useState({});
+  const [searchTerm, setSearchTerm] = useState("");
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,10 +32,10 @@ export default function SalaryManagement({ onLogout }) {
   // Helper function for shift-based month calculation
   const getShiftMonth = (timestamp) => {
     const date = new Date(timestamp);
-    if (date.getHours() >= 18) { // 6 PM
+    if (date.getHours() >= 18) {
       date.setDate(date.getDate() + 1);
     }
-    return date.toISOString().substring(0, 7); // YYYY-MM
+    return date.toISOString().substring(0, 7);
   };
 
   // Fetch all staff members from sessions
@@ -89,7 +89,6 @@ export default function SalaryManagement({ onLogout }) {
         querySnapshot.forEach((doc) => {
           const data = doc.data();
           const staffUid = data.staffUid;
-          // Use shiftMonth if available, otherwise fall back to month
           const month = data.shiftMonth || data.month;
           
           if (!advances[staffUid]) {
@@ -111,7 +110,6 @@ export default function SalaryManagement({ onLogout }) {
 
     fetchApprovedAdvances();
     
-    // Real-time listener for advance requests
     const unsubscribe = onSnapshot(
       query(collection(db, "advanceRequests"), where("status", "==", "approved")),
       () => {
@@ -137,7 +135,6 @@ export default function SalaryManagement({ onLogout }) {
         querySnapshot.forEach((doc) => {
           const data = doc.data();
           const staffUid = data.staffUid;
-          // Use shiftMonth if available, otherwise fall back to month
           const month = data.shiftMonth || data.month;
           
           if (!otData[staffUid]) {
@@ -165,7 +162,6 @@ export default function SalaryManagement({ onLogout }) {
 
     fetchOTRequests();
     
-    // Real-time listener for OT requests
     const unsubscribe = onSnapshot(
       query(collection(db, "otRequests"), where("status", "==", "approved")),
       () => {
@@ -178,7 +174,7 @@ export default function SalaryManagement({ onLogout }) {
 
   const handleSetSalary = async (staff) => {
     if (!monthlySalary || isNaN(monthlySalary) || monthlySalary <= 0) {
-      showNotification("Please enter a valid monthly salary amount", "error");
+      alert("Please enter a valid monthly salary amount");
       return;
     }
 
@@ -189,23 +185,22 @@ export default function SalaryManagement({ onLogout }) {
         staffName: staff.staffName,
         staffId: staff.staffId,
         monthlySalary: parseFloat(monthlySalary),
-        hourlyRate: parseFloat(monthlySalary) / (26 * 8), // 26 days * 8 hours
+        hourlyRate: parseFloat(monthlySalary) / (26 * 8),
         updatedAt: new Date().toISOString(),
         createdAt: salaries[staff.staffUid]?.createdAt || new Date().toISOString()
       };
 
       await setDoc(doc(db, "salaries", staff.staffUid), salaryData);
       
-      showNotification(
-        `${isEditing ? 'Updated' : 'Set'} salary for ${staff.staffName}: Rs. ${monthlySalary}/month`, 
-        "success"
+      alert(
+        `${isEditing ? 'Updated' : 'Set'} salary for ${staff.staffName}: Rs. ${monthlySalary}/month`
       );
       setMonthlySalary("");
       setSelectedStaff(null);
       setIsEditing(false);
     } catch (error) {
       console.error("Error setting salary:", error);
-      showNotification("Error setting salary: " + error.message, "error");
+      alert("Error setting salary: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -218,7 +213,6 @@ export default function SalaryManagement({ onLogout }) {
       setMonthlySalary(existingSalary.monthlySalary.toString());
       setIsEditing(true);
       setActiveTab("setup");
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -270,22 +264,11 @@ export default function SalaryManagement({ onLogout }) {
     return monthlySalary > 0 ? Math.round((advances / monthlySalary) * 100) : 0;
   };
 
-  const showNotification = (msg, type = "info") => {
-    const styles = {
-      success: "background: #4CAF50; color: white; padding: 12px; border-radius: 4px;",
-      error: "background: #f44336; color: white; padding: 12px; border-radius: 4px;",
-      info: "background: #2196F3; color: white; padding: 12px; border-radius: 4px;"
-    };
-    console.log(`%c${msg}`, styles[type] || styles.info);
-    alert(msg);
-  };
-
   const calculateStats = () => {
     const totalStaff = staffMembers.length;
     const staffWithSalary = Object.keys(salaries).length;
     const totalMonthlySalary = Object.values(salaries).reduce((sum, salary) => sum + salary.monthlySalary, 0);
     
-    // Calculate total approved advances
     let totalAdvances = 0;
     let totalOT = 0;
     let totalNetSalary = 0;
@@ -312,6 +295,17 @@ export default function SalaryManagement({ onLogout }) {
 
   const stats = calculateStats();
 
+  // Filter staff members for search
+  const filteredStaffMembers = staffMembers.filter(staff =>
+    staff.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    staff.staffId.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredSalaries = Object.values(salaries).filter(salary =>
+    salary.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    salary.staffId.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const isActiveRoute = (path) => location.pathname === path;
 
   const safeNavigate = (path) => {
@@ -325,127 +319,156 @@ export default function SalaryManagement({ onLogout }) {
 
   return (
     <div className="salary-management">
-      {/* Navigation Header */}
-      <nav className="admin-nav-header">
-        <div className="nav-brand">
-          <div className="brand-icon">🏪</div>
-          <div className="brand-text">
-            <h2>Cafe Piranha</h2>
-            <span>Admin Portal</span>
+      {/* Mobile Header */}
+      <header className="mobile-header">
+        <div className="header-content">
+          <div className="header-brand">
+            <div className="brand-icon">🏪</div>
+            <div className="brand-text">
+              <h1>Cafe Piranha</h1>
+              <span>Salary Management</span>
+            </div>
+          </div>
+          
+          <div className="header-actions">
+            <div className="live-indicator">
+              <span className="live-dot"></span>
+              <span>Live</span>
+            </div>
           </div>
         </div>
-        
-        <div className="nav-actions">
-          <div className="live-indicator">
-            <span className="live-dot"></span>
-            <span>Live</span>
-          </div>
-        </div>
-      </nav>
+      </header>
 
       {/* Main Content */}
-      <div className="admin-container">
-        {/* Welcome Header */}
-        <div className="welcome-header">
-          <div className="welcome-text">
-            <h1>Salary Management</h1>
-            <p>Set and manage staff monthly salaries with OT calculations</p>
+      <main className="mobile-main">
+        {/* Welcome Section */}
+        <section className="welcome-section">
+          <div className="welcome-content">
+            <h2>Salary Management</h2>
+            <p>Set and manage staff monthly salaries</p>
           </div>
-          <div className="date-display">
+          <div className="date-display-mobile">
             {new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
+              weekday: 'short', 
+              month: 'short', 
               day: 'numeric' 
             })}
           </div>
-        </div>
+        </section>
 
         {/* Stats Grid */}
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-icon primary">👥</div>
-            <div className="stat-content">
-              <h3>{stats.totalStaff}</h3>
-              <p>Total Staff</p>
+        <section className="stats-section">
+          <div className="stats-grid-mobile">
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile primary">👥</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{stats.totalStaff}</div>
+                <div className="stat-label">Total Staff</div>
+              </div>
             </div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-icon success">💰</div>
-            <div className="stat-content">
-              <h3>{stats.staffWithSalary}</h3>
-              <p>With Salary</p>
+            
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile success">💰</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{stats.staffWithSalary}</div>
+                <div className="stat-label">With Salary</div>
+              </div>
             </div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-icon warning">📊</div>
-            <div className="stat-content">
-              <h3>Rs. {stats.totalMonthlySalary.toLocaleString()}</h3>
-              <p>Total Base Salary</p>
+            
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile warning">📊</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{Math.round(stats.totalMonthlySalary / 1000)}k</div>
+                <div className="stat-label">Base Salary</div>
+              </div>
             </div>
-          </div>
 
-          <div className="stat-card">
-            <div className="stat-icon accent">💸</div>
-            <div className="stat-content">
-              <h3>Rs. {stats.totalAdvances.toLocaleString()}</h3>
-              <p>Total Advances</p>
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile accent">💸</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{Math.round(stats.totalAdvances / 1000)}k</div>
+                <div className="stat-label">Advances</div>
+              </div>
             </div>
-          </div>
 
-          <div className="stat-card">
-            <div className="stat-icon info">🕒</div>
-            <div className="stat-content">
-              <h3>Rs. {stats.totalOT.toLocaleString()}</h3>
-              <p>Total OT</p>
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile info">🕒</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{Math.round(stats.totalOT / 1000)}k</div>
+                <div className="stat-label">Overtime</div>
+              </div>
             </div>
-          </div>
 
-          <div className="stat-card highlight">
-            <div className="stat-icon secondary">💳</div>
-            <div className="stat-content">
-              <h3>Rs. {stats.totalNetSalary.toLocaleString()}</h3>
-              <p>Total Net Salary</p>
+            <div className="stat-card-mobile highlight">
+              <div className="stat-icon-mobile secondary">💳</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{Math.round(stats.totalNetSalary / 1000)}k</div>
+                <div className="stat-label">Net Salary</div>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Tab Navigation */}
-        <div className="tab-navigation">
-          <button 
-            className={`tab-btn ${activeTab === "setup" ? "active" : ""}`}
-            onClick={() => {
-              setActiveTab("setup");
-              setIsEditing(false);
-              setSelectedStaff(null);
-              setMonthlySalary("");
-            }}
-          >
-            <span className="tab-icon">💰</span>
-            {isEditing ? "Edit Salary" : "Set Salary"}
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === "view" ? "active" : ""}`}
-            onClick={() => setActiveTab("view")}
-          >
-            <span className="tab-icon">📋</span>
-            View All
-          </button>
-        </div>
+        <section className="tabs-section">
+          <div className="tabs-container">
+            <button 
+              className={`tab-btn ${activeTab === "setup" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("setup");
+                setIsEditing(false);
+                setSelectedStaff(null);
+                setMonthlySalary("");
+              }}
+            >
+              <span className="tab-icon">💰</span>
+              <span className="tab-text">{isEditing ? "Edit Salary" : "Set Salary"}</span>
+            </button>
+            <button 
+              className={`tab-btn ${activeTab === "view" ? "active" : ""}`}
+              onClick={() => setActiveTab("view")}
+            >
+              <span className="tab-icon">📋</span>
+              <span className="tab-text">View All</span>
+            </button>
+          </div>
+        </section>
+
+        {/* Search Bar */}
+        <section className="search-section">
+          <div className="search-container">
+            <div className="search-icon">🔍</div>
+            <input
+              type="text"
+              placeholder="Search staff by name or ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+            {searchTerm && (
+              <button 
+                className="clear-search"
+                onClick={() => setSearchTerm("")}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </section>
 
         {/* Salary Setup Tab */}
         {activeTab === "setup" && (
-          <div className="section-card">
-            <div className="card-header">
-              <h2>{isEditing ? "Edit Monthly Salary" : "Set Monthly Salary"}</h2>
-              <span className="badge">{staffMembers.length - Object.keys(salaries).length} pending</span>
+          <section className="section-mobile">
+            <div className="section-header-mobile">
+              <h3>{isEditing ? "Edit Monthly Salary" : "Set Monthly Salary"}</h3>
+              <span className="badge-mobile pending">
+                {staffMembers.length - Object.keys(salaries).length} pending
+              </span>
             </div>
 
-            <div className="salary-setup-form">
-              <div className="form-group">
-                <label className="form-label">Select Staff Member</label>
+            <div className="salary-setup-form-mobile">
+              <div className="form-group-mobile">
+                <label className="form-label-mobile">Select Staff Member</label>
                 <select 
                   value={selectedStaff?.staffUid || ""} 
                   onChange={(e) => {
@@ -460,10 +483,10 @@ export default function SalaryManagement({ onLogout }) {
                       setIsEditing(false);
                     }
                   }}
-                  className="form-select"
+                  className="form-select-mobile"
                 >
                   <option value="">Choose staff member...</option>
-                  {staffMembers.map(staff => (
+                  {filteredStaffMembers.map(staff => (
                     <option key={staff.staffUid} value={staff.staffUid}>
                       {staff.staffName} (ID: {staff.staffId})
                       {salaries[staff.staffUid] && " - 💰 Salary Set"}
@@ -474,7 +497,7 @@ export default function SalaryManagement({ onLogout }) {
 
               {selectedStaff && (
                 <>
-                  <div className="staff-info-card">
+                  <div className="staff-info-card-mobile">
                     <div className="staff-avatar-large">
                       {selectedStaff.staffName?.charAt(0).toUpperCase()}
                     </div>
@@ -483,11 +506,13 @@ export default function SalaryManagement({ onLogout }) {
                       <span className="staff-id">ID: {selectedStaff.staffId}</span>
                       {salaries[selectedStaff.staffUid] && (
                         <div className="current-salary-info">
-                          <span>Current Salary: Rs. {salaries[selectedStaff.staffUid].monthlySalary.toLocaleString()}/month</span>
+                          <span className="salary-amount">
+                            Current: Rs. {salaries[selectedStaff.staffUid].monthlySalary.toLocaleString()}/month
+                          </span>
                           {approvedAdvances[selectedStaff.staffUid] && (
                             <div className="advance-info">
-                              <span>Approved Advances: Rs. {getTotalAdvances(selectedStaff.staffUid).toLocaleString()}</span>
-                              <span>Remaining Salary: Rs. {calculateRemainingSalary(selectedStaff.staffUid, salaries[selectedStaff.staffUid].monthlySalary).toLocaleString()}</span>
+                              <span>Advances: Rs. {getTotalAdvances(selectedStaff.staffUid).toLocaleString()}</span>
+                              <span>Remaining: Rs. {calculateRemainingSalary(selectedStaff.staffUid, salaries[selectedStaff.staffUid].monthlySalary).toLocaleString()}</span>
                             </div>
                           )}
                         </div>
@@ -495,73 +520,80 @@ export default function SalaryManagement({ onLogout }) {
                     </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Monthly Salary (Rs.)</label>
+                  <div className="form-group-mobile">
+                    <label className="form-label-mobile">Monthly Salary (Rs.)</label>
                     <input
                       type="number"
                       value={monthlySalary}
                       onChange={(e) => setMonthlySalary(e.target.value)}
                       placeholder="Enter monthly salary amount"
-                      className="form-input"
+                      className="form-input-mobile"
                       min="0"
                       step="100"
                     />
                   </div>
 
                   {monthlySalary && (
-                    <div className="salary-breakdown-card">
-                      <div className="breakdown-header">
+                    <div className="salary-breakdown-card-mobile">
+                      <div className="breakdown-header-mobile">
                         <h4>Salary Breakdown</h4>
                         <div className="breakdown-badge">Calculated</div>
                       </div>
-                      <div className="breakdown-grid">
-                        <div className="breakdown-item">
+                      <div className="breakdown-grid-mobile">
+                        <div className="breakdown-item-mobile">
                           <span className="breakdown-label">Daily Rate</span>
                           <span className="breakdown-value">Rs. {(monthlySalary / 26).toFixed(2)}</span>
                         </div>
-                        <div className="breakdown-item">
+                        <div className="breakdown-item-mobile">
                           <span className="breakdown-label">Hourly Rate</span>
                           <span className="breakdown-value">Rs. {(monthlySalary / (26 * 8)).toFixed(2)}</span>
                         </div>
-                        <div className="breakdown-item">
+                        <div className="breakdown-item-mobile highlight">
                           <span className="breakdown-label">Max Advance (50%)</span>
-                          <span className="breakdown-value highlight">Rs. {(monthlySalary * 0.5).toLocaleString()}</span>
+                          <span className="breakdown-value">Rs. {(monthlySalary * 0.5).toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
                   )}
 
                   <button 
-                    className="btn-primary set-salary-btn"
+                    className="btn-set-salary-mobile"
                     onClick={() => handleSetSalary(selectedStaff)}
                     disabled={loading || !monthlySalary}
                   >
                     <span className="btn-icon">💾</span>
-                    {loading ? "Saving..." : (isEditing ? "Update Salary" : "Set Salary")}
+                    <span className="btn-text">
+                      {loading ? "Saving..." : (isEditing ? "Update Salary" : "Set Salary")}
+                    </span>
                   </button>
                 </>
               )}
             </div>
-          </div>
+          </section>
         )}
 
         {/* View Salaries Tab */}
         {activeTab === "view" && (
-          <div className="section-card">
-            <div className="card-header">
-              <h2>Current Salary Structure</h2>
-              <span className="badge">{Object.keys(salaries).length}</span>
+          <section className="section-mobile">
+            <div className="section-header-mobile">
+              <h3>Current Salary Structure</h3>
+              <span className="badge-mobile">{filteredSalaries.length}</span>
             </div>
             
-            {Object.keys(salaries).length === 0 ? (
-              <div className="empty-state">
+            {filteredSalaries.length === 0 ? (
+              <div className="empty-state-mobile">
                 <div className="empty-icon">💰</div>
-                <h3>No Salaries Set</h3>
-                <p>Set salaries for staff members in the "Set Salary" tab</p>
+                <h4>No Salaries Found</h4>
+                <p>
+                  {searchTerm ? 
+                    "No matching salaries found for your search" : 
+                    "Set salaries for staff members in the 'Set Salary' tab"
+                  }
+                </p>
               </div>
             ) : (
-              <div className="salaries-list">
-                {Object.values(salaries).map(salary => {
+              <div className="salaries-list-mobile">
+                {filteredSalaries.map(salary => {
                   const totalAdvances = getTotalAdvances(salary.staffUid);
                   const totalOT = getTotalOT(salary.staffUid);
                   const totalOTHours = getTotalOTHours(salary.staffUid);
@@ -570,71 +602,69 @@ export default function SalaryManagement({ onLogout }) {
                   const advanceUsage = getAdvanceUsagePercentage(salary.staffUid, salary.monthlySalary);
                   
                   return (
-                    <div key={salary.staffUid} className="salary-item">
-                      <div className="salary-header">
-                        <div className="staff-info">
-                          <div className="staff-avatar">
+                    <div key={salary.staffUid} className="salary-item-mobile">
+                      <div className="salary-header-mobile">
+                        <div className="staff-info-mobile">
+                          <div className="staff-avatar-mobile">
                             {salary.staffName?.charAt(0).toUpperCase()}
                           </div>
-                          <div className="staff-details">
+                          <div className="staff-details-mobile">
                             <h4>{salary.staffName}</h4>
                             <span className="staff-id">ID: {salary.staffId}</span>
                           </div>
                         </div>
-                        <div className="salary-amount-main">
+                        <div className="salary-amount-main-mobile">
                           Rs. {salary.monthlySalary.toLocaleString()}
                           <span className="salary-period">/month</span>
                         </div>
                       </div>
 
-                      <div className="salary-details">
-                        <div className="salary-breakdown-mini">
-                          <div className="breakdown-row">
-                            <span>Daily:</span>
-                            <span>Rs. {(salary.monthlySalary / 26).toFixed(2)}</span>
+                      <div className="salary-details-mobile">
+                        {/* Quick Stats */}
+                        <div className="quick-stats-mobile">
+                          <div className="quick-stat">
+                            <span className="stat-label">Daily</span>
+                            <span className="stat-value">Rs. {(salary.monthlySalary / 26).toFixed(0)}</span>
                           </div>
-                          <div className="breakdown-row">
-                            <span>Hourly:</span>
-                            <span>Rs. {salary.hourlyRate?.toFixed(2) || (salary.monthlySalary / (26 * 8)).toFixed(2)}</span>
+                          <div className="quick-stat">
+                            <span className="stat-label">Hourly</span>
+                            <span className="stat-value">Rs. {salary.hourlyRate?.toFixed(0) || (salary.monthlySalary / (26 * 8)).toFixed(0)}</span>
                           </div>
-                          <div className="breakdown-row highlight">
-                            <span>Max Advance:</span>
-                            <span>Rs. {(salary.monthlySalary * 0.5).toLocaleString()}</span>
+                          <div className="quick-stat highlight">
+                            <span className="stat-label">Max Advance</span>
+                            <span className="stat-value">Rs. {(salary.monthlySalary * 0.5).toLocaleString()}</span>
                           </div>
                         </div>
                         
                         {/* Financial Summary */}
-                        <div className="financial-summary">
-                          <div className="summary-section">
-                            <h5>Earnings</h5>
-                            <div className="summary-item positive">
+                        <div className="financial-summary-mobile">
+                          <div className="summary-section-mobile">
+                            <div className="summary-item-mobile positive">
                               <span className="summary-label">Base Salary:</span>
                               <span className="summary-value">Rs. {salary.monthlySalary.toLocaleString()}</span>
                             </div>
                             {totalOT > 0 && (
-                              <div className="summary-item positive">
+                              <div className="summary-item-mobile positive">
                                 <span className="summary-label">Overtime:</span>
                                 <span className="summary-value">
-                                  + Rs. {totalOT.toLocaleString()} ({totalOTHours.toFixed(1)}h)
+                                  + Rs. {totalOT.toLocaleString()}
                                 </span>
                               </div>
                             )}
                           </div>
                           
-                          <div className="summary-section">
-                            <h5>Deductions</h5>
-                            {totalAdvances > 0 && (
-                              <div className="summary-item negative">
+                          {totalAdvances > 0 && (
+                            <div className="summary-section-mobile">
+                              <div className="summary-item-mobile negative">
                                 <span className="summary-label">Advances:</span>
                                 <span className="summary-value">- Rs. {totalAdvances.toLocaleString()}</span>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                           
-                          <div className="summary-section total">
-                            <h5>Net Salary</h5>
-                            <div className="summary-item total-amount">
-                              <span className="summary-label">Final Amount:</span>
+                          <div className="summary-section-mobile total">
+                            <div className="summary-item-mobile total-amount">
+                              <span className="summary-label">Net Salary:</span>
                               <span className="summary-value">Rs. {netSalary.toLocaleString()}</span>
                             </div>
                           </div>
@@ -642,30 +672,24 @@ export default function SalaryManagement({ onLogout }) {
                         
                         {/* Progress Bar for Advance Usage */}
                         {totalAdvances > 0 && (
-                          <div className="advance-progress-section">
-                            <div className="progress-header">
+                          <div className="advance-progress-section-mobile">
+                            <div className="progress-header-mobile">
                               <span>Advance Usage: {advanceUsage}%</span>
-                              <span>Rs. {totalAdvances.toLocaleString()} / Rs. {salary.monthlySalary.toLocaleString()}</span>
+                              <span>Rs. {totalAdvances.toLocaleString()}</span>
                             </div>
-                            <div className="progress-bar">
+                            <div className="progress-bar-mobile">
                               <div 
-                                className="progress-fill"
+                                className="progress-fill-mobile"
                                 style={{ width: `${Math.min(advanceUsage, 100)}%` }}
                               ></div>
                             </div>
                           </div>
                         )}
-                        
-                        <div className="salary-meta">
-                          <span className="update-date">
-                            Updated: {salary.updatedAt ? new Date(salary.updatedAt).toLocaleDateString() : 'Recently'}
-                          </span>
-                        </div>
                       </div>
 
-                      <div className="salary-actions">
+                      <div className="salary-actions-mobile">
                         <button 
-                          className="btn-outline edit-btn"
+                          className="btn-edit-salary-mobile"
                           onClick={() => handleEditSalary({
                             staffUid: salary.staffUid,
                             staffName: salary.staffName,
@@ -673,7 +697,7 @@ export default function SalaryManagement({ onLogout }) {
                           })}
                         >
                           <span className="btn-icon">✏️</span>
-                          Edit Salary
+                          <span className="btn-text">Edit Salary</span>
                         </button>
                       </div>
                     </div>
@@ -681,19 +705,19 @@ export default function SalaryManagement({ onLogout }) {
                 })}
               </div>
             )}
-          </div>
+          </section>
         )}
 
         {/* Quick Actions */}
-        <div className="section-card">
-          <div className="card-header">
-            <h2>Quick Actions</h2>
-            <span className="badge warning">Admin</span>
+        <section className="section-mobile">
+          <div className="section-header-mobile">
+            <h3>Quick Actions</h3>
+            <span className="badge-mobile warning">Admin</span>
           </div>
           
-          <div className="action-buttons">
+          <div className="action-buttons-mobile">
             <button 
-              className="btn-secondary"
+              className="btn-quick-action-mobile"
               onClick={() => {
                 const staffWithoutSalary = staffMembers.filter(staff => !salaries[staff.staffUid]);
                 if (staffWithoutSalary.length > 0) {
@@ -702,18 +726,17 @@ export default function SalaryManagement({ onLogout }) {
                   setMonthlySalary("");
                   setIsEditing(false);
                   setActiveTab("setup");
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
                 } else {
-                  showNotification("All staff members have salaries set!", "info");
+                  alert("All staff members have salaries set!");
                 }
               }}
             >
               <span className="btn-icon">🎲</span>
-              Random Staff (No Salary)
+              <span className="btn-text">Random Staff</span>
             </button>
             
             <button 
-              className="btn-outline"
+              className="btn-quick-action-mobile outline"
               onClick={() => {
                 setSelectedStaff(null);
                 setMonthlySalary("");
@@ -721,60 +744,59 @@ export default function SalaryManagement({ onLogout }) {
               }}
             >
               <span className="btn-icon">🔄</span>
-              Clear Form
+              <span className="btn-text">Clear Form</span>
             </button>
           </div>
-        </div>
+        </section>
+      </main>
 
-        {/* Bottom Navigation */}
-        <nav className="bottom-nav">
-          <button 
-            className={`nav-item ${isActiveRoute('/admin') ? 'active' : ''}`}
-            onClick={() => safeNavigate('/admin')}
-          >
-            <span className="nav-icon">📊</span>
-            <span className="nav-text">Dashboard</span>
-          </button>
-          
-          <button 
-            className={`nav-item ${isActiveRoute('/admin/salary') ? 'active' : ''}`}
-            onClick={() => safeNavigate('/admin/salary')}
-          >
-            <span className="nav-icon">💰</span>
-            <span className="nav-text">Salary</span>
-          </button>
-          
-          <button 
-            className={`nav-item ${isActiveRoute('/admin/advances') ? 'active' : ''}`}
-            onClick={() => safeNavigate('/admin/advances')}
-          >
-            <span className="nav-icon">📋</span>
-            <span className="nav-text">Advances</span>
-          </button>
-          
-          <button 
-            className={`nav-item ${isActiveRoute('/admin/ot-approvals') ? 'active' : ''}`}
-            onClick={() => safeNavigate('/admin/ot-approvals')}
-          >
-            <span className="nav-icon">🕒</span>
-            <span className="nav-text">OT</span>
-          </button>
-          
-          {/* ADDED AVAILABILITY BUTTON */}
-          <button 
-            className={`nav-item ${isActiveRoute('/admin/availability') ? 'active' : ''}`}
-            onClick={() => safeNavigate('/admin/availability')}
-          >
-            <span className="nav-icon">📅</span>
-            <span className="nav-text">Availability</span>
-          </button>
-          
-          <button className="nav-item logout-item" onClick={onLogout}>
-            <span className="nav-icon">🚪</span>
-            <span className="nav-text">Logout</span>
-          </button>
-        </nav>
-      </div>
+      {/* Bottom Navigation */}
+      <nav className="mobile-bottom-nav">
+        <button 
+          className={`nav-item ${isActiveRoute('/admin') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin')}
+        >
+          <span className="nav-icon">📊</span>
+          <span className="nav-label">Dashboard</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/admin/salary') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin/salary')}
+        >
+          <span className="nav-icon">💰</span>
+          <span className="nav-label">Salary</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/admin/advances') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin/advances')}
+        >
+          <span className="nav-icon">📋</span>
+          <span className="nav-label">Advances</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/admin/ot-approvals') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin/ot-approvals')}
+        >
+          <span className="nav-icon">🕒</span>
+          <span className="nav-label">OT</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/admin/availability') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin/availability')}
+        >
+          <span className="nav-icon">📅</span>
+          <span className="nav-label">Availability</span>
+        </button>
+        
+        <button className="nav-item logout-item" onClick={onLogout}>
+          <span className="nav-icon">🚪</span>
+          <span className="nav-label">Logout</span>
+        </button>
+      </nav>
     </div>
   );
 }

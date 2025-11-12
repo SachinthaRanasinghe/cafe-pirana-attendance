@@ -29,10 +29,10 @@ export default function RequestAdvance({ staffData, onLogout }) {
   // Helper function for shift-based month calculation
   const getShiftMonth = (timestamp) => {
     const date = new Date(timestamp);
-    if (date.getHours() >= 18) { // 6 PM
+    if (date.getHours() >= 18) {
       date.setDate(date.getDate() + 1);
     }
-    return date.toISOString().substring(0, 7); // YYYY-MM
+    return date.toISOString().substring(0, 7);
   };
 
   // Use correct property names from Login.jsx
@@ -75,7 +75,6 @@ export default function RequestAdvance({ staffData, onLogout }) {
         
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          // Use shiftMonth if available, otherwise fall back to month
           const requestMonth = data.shiftMonth || data.month;
           if (requestMonth === currentShiftMonth) {
             totalAdvances += data.amount || 0;
@@ -84,7 +83,6 @@ export default function RequestAdvance({ staffData, onLogout }) {
         
         setApprovedAdvances(totalAdvances);
         
-        // Calculate remaining salary
         if (salary) {
           setRemainingSalary(Math.max(0, salary.monthlySalary - totalAdvances));
         }
@@ -97,7 +95,6 @@ export default function RequestAdvance({ staffData, onLogout }) {
       fetchApprovedAdvances();
     }
     
-    // Real-time listener for advance requests
     const unsubscribe = onSnapshot(
       query(
         collection(db, "advanceRequests"),
@@ -150,8 +147,6 @@ export default function RequestAdvance({ staffData, onLogout }) {
   // Calculate max advance based on current salary and remaining balance
   const calculateMaxAdvance = () => {
     if (!salary || !salary.monthlySalary) return 0;
-    
-    // Maximum advance is 50% of monthly salary OR remaining salary, whichever is lower
     const fiftyPercent = salary.monthlySalary * 0.5;
     return Math.min(fiftyPercent, remainingSalary);
   };
@@ -217,8 +212,8 @@ export default function RequestAdvance({ staffData, onLogout }) {
         requestDate: currentDate.toISOString(),
         reason: reason.trim() || "No reason provided",
         status: "pending",
-        month: currentDate.toISOString().substring(0, 7), // Regular month
-        shiftMonth: getShiftMonth(currentDate), // Shift-based month
+        month: currentDate.toISOString().substring(0, 7),
+        shiftMonth: getShiftMonth(currentDate),
         maxAllowed: maxAdvance,
         currentSalary: salary.monthlySalary,
         hourlyRate: salary.hourlyRate,
@@ -239,12 +234,6 @@ export default function RequestAdvance({ staffData, onLogout }) {
   };
 
   const showNotification = (msg, type = "info") => {
-    const styles = {
-      success: "background: #4CAF50; color: white; padding: 12px; border-radius: 4px;",
-      error: "background: #f44336; color: white; padding: 12px; border-radius: 4px;",
-      info: "background: #2196F3; color: white; padding: 12px; border-radius: 4px;"
-    };
-    console.log(`%c${msg}`, styles[type] || styles.info);
     alert(msg);
   };
 
@@ -285,160 +274,135 @@ export default function RequestAdvance({ staffData, onLogout }) {
 
   return (
     <div className="request-advance">
-      {/* Navigation Header */}
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <div className="brand-icon">🏪</div>
-          <div className="brand-text">
-            <h2>Cafe Piranha</h2>
-            <span>Staff Portal</span>
+      {/* Mobile Header */}
+      <header className="mobile-header">
+        <div className="header-content">
+          <div className="header-brand">
+            <div className="brand-icon">🏪</div>
+            <div className="brand-text">
+              <h1>Cafe Piranha</h1>
+              <span>Advance Request</span>
+            </div>
+          </div>
+          
+          <div className="header-user">
+            <div className="user-avatar">
+              {staffName.charAt(0).toUpperCase()}
+            </div>
           </div>
         </div>
         
-        <div className="nav-user">
-          <div className="user-avatar">
-            {staffName.charAt(0).toUpperCase()}
-          </div>
-          <div className="user-info">
-            <span className="user-name">{staffName}</span>
-            <span className="user-id">ID: {staffId}</span>
-          </div>
+        <div className="user-info-mobile">
+          <span className="user-name">{staffName}</span>
+          <span className="user-id">ID: {staffId}</span>
         </div>
-      </nav>
+      </header>
 
-      {/* Main Dashboard Content */}
-      <div className="dashboard-container">
-        {/* Main Content Area */}
-        <main className="dashboard-main">
-          {/* Welcome Header */}
-          <div className="welcome-header">
-            <div className="welcome-text">
-              <h1>Salary Advance Request</h1>
-              <p>Request an advance on your monthly salary</p>
+      {/* Main Content */}
+      <main className="mobile-main">
+        {/* Welcome Section */}
+        <section className="welcome-section">
+          <div className="welcome-content">
+            <h2>Salary Advance</h2>
+            <p>Request an advance on your salary</p>
+          </div>
+          <div className="date-display-mobile">
+            {new Date().toLocaleDateString('en-US', { 
+              weekday: 'short', 
+              month: 'short', 
+              day: 'numeric' 
+            })}
+          </div>
+        </section>
+
+        {!salary ? (
+          <div className="warning-card-mobile">
+            <div className="warning-header">
+              <div className="warning-icon">⚠️</div>
+              <h3>Salary Not Configured</h3>
             </div>
-            <div className="date-display">
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
+            <div className="warning-content">
+              <p>Your salary has not been set up yet. Please contact administration.</p>
             </div>
           </div>
-
-          {!salary ? (
-            <div className="warning-card">
-              <div className="warning-header">
-                <div className="warning-icon">⚠️</div>
-                <h3>Salary Not Configured</h3>
-              </div>
-              <div className="warning-content">
-                <p>Your salary has not been set up yet. Please contact administration to set up your salary before requesting advances.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Salary Overview Cards */}
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <div className="stat-icon primary">💰</div>
-                  <div className="stat-content">
-                    <h3>Rs. {salary.monthlySalary?.toLocaleString() || '0'}</h3>
-                    <p>Monthly Salary</p>
-                  </div>
-                </div>
-                
-                <div className="stat-card">
-                  <div className="stat-icon warning">💸</div>
-                  <div className="stat-content">
-                    <h3>Rs. {approvedAdvances.toLocaleString()}</h3>
-                    <p>Approved Advances</p>
-                  </div>
-                </div>
-                
-                <div className="stat-card success">
-                  <div className="stat-icon success">📊</div>
-                  <div className="stat-content">
-                    <h3>Rs. {remainingSalary.toLocaleString()}</h3>
-                    <p>Remaining Salary</p>
-                  </div>
-                </div>
-
-                <div className="stat-card highlight">
-                  <div className="stat-icon secondary">📈</div>
-                  <div className="stat-content">
-                    <h3>Rs. {calculateMaxAdvance().toLocaleString()}</h3>
-                    <p>Max Advance Available</p>
-                  </div>
+        ) : (
+          <>
+            {/* Quick Stats */}
+            <section className="quick-stats-advance">
+              <div className="stat-item-advance">
+                <div className="stat-icon-advance primary">💰</div>
+                <div className="stat-content-advance">
+                  <div className="stat-value">Rs. {salary.monthlySalary?.toLocaleString() || '0'}</div>
+                  <div className="stat-label">Monthly</div>
                 </div>
               </div>
+              
+              <div className="stat-item-advance">
+                <div className="stat-icon-advance warning">💸</div>
+                <div className="stat-content-advance">
+                  <div className="stat-value">Rs. {approvedAdvances.toLocaleString()}</div>
+                  <div className="stat-label">Advances</div>
+                </div>
+              </div>
+              
+              <div className="stat-item-advance">
+                <div className="stat-icon-advance success">📊</div>
+                <div className="stat-content-advance">
+                  <div className="stat-value">Rs. {remainingSalary.toLocaleString()}</div>
+                  <div className="stat-label">Remaining</div>
+                </div>
+              </div>
+            </section>
 
-              {/* Request Form Card */}
-              <div className="advance-card">
-                <div className="card-header">
-                  <h2>Request Salary Advance</h2>
-                  <div className="card-badge">
+            {/* Request Form Card */}
+            <section className="advance-section">
+              <div className="advance-card-mobile">
+                <div className="card-header-mobile">
+                  <h3>Request Advance</h3>
+                  <div className={`status-badge-mobile ${
+                    pendingRequests.length > 0 ? 'pending' : 
+                    remainingSalary > 0 ? 'available' : 'exhausted'
+                  }`}>
                     {pendingRequests.length > 0 ? 'Pending' : remainingSalary > 0 ? 'Available' : 'Exhausted'}
                   </div>
                 </div>
 
                 {pendingRequests.length > 0 ? (
-                  <div className="pending-warning">
-                    <div className="warning-content">
-                      <div className="warning-icon-large">⏳</div>
-                      <div className="warning-text">
-                        <h4>Pending Request Exists</h4>
-                        <p>You already have a pending advance request. Please wait for it to be processed before submitting a new one.</p>
-                        <div className="pending-details">
-                          <div className="detail-item">
-                            <span className="detail-label">Amount:</span>
-                            <span className="detail-value">Rs. {pendingRequests[0]?.amount?.toLocaleString() || '0'}</span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="detail-label">Requested:</span>
-                            <span className="detail-value">
-                              {pendingRequests[0]?.requestDate ? new Date(pendingRequests[0].requestDate).toLocaleDateString() : 'Unknown'}
-                            </span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="detail-label">Based on Salary:</span>
-                            <span className="detail-value">
-                              Rs. {pendingRequests[0]?.currentSalary?.toLocaleString() || salary.monthlySalary.toLocaleString()}
-                            </span>
-                          </div>
+                  <div className="pending-warning-mobile">
+                    <div className="warning-icon-large">⏳</div>
+                    <div className="warning-text-mobile">
+                      <h4>Pending Request</h4>
+                      <p>You have a pending advance request. Wait for processing.</p>
+                      <div className="pending-details-mobile">
+                        <div className="detail-item">
+                          <span>Amount:</span>
+                          <span>Rs. {pendingRequests[0]?.amount?.toLocaleString() || '0'}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span>Requested:</span>
+                          <span>
+                            {pendingRequests[0]?.requestDate ? 
+                              new Date(pendingRequests[0].requestDate).toLocaleDateString() : 'Unknown'}
+                          </span>
                         </div>
                       </div>
                     </div>
                   </div>
                 ) : remainingSalary <= 0 ? (
-                  <div className="warning-card">
+                  <div className="warning-card-mobile exhausted">
                     <div className="warning-header">
                       <div className="warning-icon">💰</div>
-                      <h3>Advance Limit Reached</h3>
+                      <h3>Limit Reached</h3>
                     </div>
                     <div className="warning-content">
-                      <p>You have already received the maximum advance amount for this month. No further advances can be processed until next month.</p>
-                      <div className="salary-summary">
-                        <div className="summary-item">
-                          <span>Monthly Salary:</span>
-                          <span>Rs. {salary.monthlySalary.toLocaleString()}</span>
-                        </div>
-                        <div className="summary-item">
-                          <span>Approved Advances:</span>
-                          <span>Rs. {approvedAdvances.toLocaleString()}</span>
-                        </div>
-                        <div className="summary-item highlight">
-                          <span>Remaining Salary:</span>
-                          <span>Rs. {remainingSalary.toLocaleString()}</span>
-                        </div>
-                      </div>
+                      <p>Maximum advance reached for this month.</p>
                     </div>
                   </div>
                 ) : (
-                  <form onSubmit={handleSubmit} className="advance-form">
-                    <div className="form-group">
-                      <label htmlFor="amount" className="form-label">
-                        Advance Amount (Rs.)
+                  <form onSubmit={handleSubmit} className="advance-form-mobile">
+                    <div className="form-group-mobile">
+                      <label htmlFor="amount" className="form-label-mobile">
+                        Amount (Rs.)
                       </label>
                       <input
                         id="amount"
@@ -446,164 +410,134 @@ export default function RequestAdvance({ staffData, onLogout }) {
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         placeholder="Enter amount"
-                        className="form-input"
+                        className="form-input-mobile"
                         min="100"
                         max={calculateMaxAdvance()}
                         step="100"
                         required
                       />
-                      <div className="form-hint">
-                        Maximum allowed: Rs. {calculateMaxAdvance().toLocaleString()} (50% of salary or remaining balance)
+                      <div className="form-hint-mobile">
+                        Max: Rs. {calculateMaxAdvance().toLocaleString()}
                       </div>
                       
-                      {/* Progress bar showing percentage of max advance */}
                       {amount && !isNaN(amount) && amount > 0 && (
-                        <div className="advance-progress">
-                          <div className="progress-bar">
+                        <div className="advance-progress-mobile">
+                          <div className="progress-bar-mobile">
                             <div 
-                              className="progress-fill"
+                              className="progress-fill-mobile"
                               style={{ width: `${getAdvancePercentage()}%` }}
                             ></div>
                           </div>
-                          <div className="progress-text">
-                            {getAdvancePercentage().toFixed(1)}% of maximum advance available
+                          <div className="progress-text-mobile">
+                            {getAdvancePercentage().toFixed(1)}% of maximum
                           </div>
                         </div>
                       )}
                     </div>
 
-                    <div className="form-group">
-                      <label htmlFor="reason" className="form-label">
-                        Reason for Advance <span className="optional">(Optional)</span>
+                    <div className="form-group-mobile">
+                      <label htmlFor="reason" className="form-label-mobile">
+                        Reason <span className="optional">(Optional)</span>
                       </label>
                       <textarea
                         id="reason"
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
-                        placeholder="Briefly explain why you need this advance..."
-                        className="form-textarea"
-                        rows="4"
+                        placeholder="Why do you need this advance?"
+                        className="form-textarea-mobile"
+                        rows="3"
                       />
                     </div>
 
-                    <div className="advance-summary">
-                      <h4>Salary & Advance Summary</h4>
-                      <div className="summary-grid">
-                        <div className="summary-item">
-                          <span>Your Monthly Salary:</span>
-                          <span>Rs. {salary.monthlySalary.toLocaleString()}</span>
-                        </div>
-                        <div className="summary-item">
-                          <span>Approved Advances This Month:</span>
-                          <span>Rs. {approvedAdvances.toLocaleString()}</span>
-                        </div>
-                        <div className="summary-item success">
-                          <span>Remaining Salary:</span>
-                          <span>Rs. {remainingSalary.toLocaleString()}</span>
-                        </div>
-                        <div className="summary-item highlight">
-                          <span>Maximum Advance Available:</span>
-                          <span>Rs. {calculateMaxAdvance().toLocaleString()}</span>
-                        </div>
-                        <div className="summary-item requested">
-                          <span>Requested Amount:</span>
-                          <span>Rs. {amount ? parseFloat(amount).toLocaleString() : '0'}</span>
-                        </div>
-                        {amount && !isNaN(amount) && amount > 0 && (
-                          <div className="summary-item remaining-after">
-                            <span>Remaining After Advance:</span>
-                            <span>Rs. {(remainingSalary - parseFloat(amount)).toLocaleString()}</span>
-                          </div>
-                        )}
+                    <div className="advance-summary-mobile">
+                      <div className="summary-item-mobile">
+                        <span>Requested:</span>
+                        <span>Rs. {amount ? parseFloat(amount).toLocaleString() : '0'}</span>
+                      </div>
+                      <div className="summary-item-mobile">
+                        <span>Remaining After:</span>
+                        <span>Rs. {amount ? (remainingSalary - parseFloat(amount)).toLocaleString() : remainingSalary.toLocaleString()}</span>
                       </div>
                     </div>
 
                     <button 
                       type="submit" 
-                      className="btn-primary submit-btn"
+                      className="btn-submit-advance"
                       disabled={loading || !amount || !uid || remainingSalary <= 0}
                     >
                       <span className="btn-icon">📋</span>
-                      {loading ? "Submitting..." : "Submit Advance Request"}
+                      <span className="btn-text">
+                        {loading ? "Submitting..." : "Submit Request"}
+                      </span>
                     </button>
                   </form>
                 )}
               </div>
+            </section>
 
-              {/* Request History Card */}
-              <div className="history-card">
-                <div className="card-header">
-                  <h2>Request History</h2>
-                  <span className="badge">{requestHistory.length}</span>
+            {/* Request History */}
+            <section className="history-section">
+              <div className="section-header">
+                <h3>Request History</h3>
+                <span className="session-count">{requestHistory.length}</span>
+              </div>
+
+              {requestHistory.length === 0 ? (
+                <div className="empty-sessions">
+                  <div className="empty-icon">📋</div>
+                  <p>No advance requests yet</p>
                 </div>
-                
-                {requestHistory.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-icon">📋</div>
-                    <h3>No Advance Requests</h3>
-                    <p>Your advance request history will appear here</p>
-                  </div>
-                ) : (
-                  <div className="history-list">
-                    {requestHistory.map((request, index) => (
-                      <div key={request.id} className={`history-item ${request.status}`}>
-                        <div className="history-main">
-                          <div className="history-amount">
-                            Rs. {request.amount?.toLocaleString() || '0'}
-                          </div>
-                          <div className={`status-badge ${request.status}`}>
-                            {request.status === "pending" && "⏳ Pending"}
-                            {request.status === "approved" && "✅ Approved"}
-                            {request.status === "rejected" && "❌ Rejected"}
-                          </div>
+              ) : (
+                <div className="history-list-mobile">
+                  {requestHistory.map((request, index) => (
+                    <div key={request.id} className={`history-item-mobile ${request.status}`}>
+                      <div className="history-header-mobile">
+                        <div className="history-amount-mobile">
+                          Rs. {request.amount?.toLocaleString() || '0'}
                         </div>
-                        
-                        <div className="history-details">
-                          <div className="history-date">
-                            {request.requestDate ? new Date(request.requestDate).toLocaleDateString() : 'Unknown date'}
-                          </div>
-                          
-                          <div className="salary-reference">
-                            Based on salary: Rs. {request.currentSalary?.toLocaleString() || 'N/A'}
-                          </div>
-                          
-                          {request.reason && request.reason !== "No reason provided" && (
-                            <div className="history-reason">
-                              {request.reason}
-                            </div>
-                          )}
-                          
-                          {request.approvedAt && (
-                            <div className="history-processed">
-                              {request.status === "approved" ? "Approved" : "Rejected"} on{" "}
-                              {new Date(request.approvedAt).toLocaleDateString()}
-                            </div>
-                          )}
-                          
-                          {request.rejectionReason && (
-                            <div className="rejection-reason">
-                              <strong>Reason:</strong> {request.rejectionReason}
-                            </div>
-                          )}
+                        <div className={`status-badge-history ${request.status}`}>
+                          {request.status === "pending" && "⏳"}
+                          {request.status === "approved" && "✅"}
+                          {request.status === "rejected" && "❌"}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </main>
-      </div>
+                      
+                      <div className="history-details-mobile">
+                        <div className="history-date-mobile">
+                          {request.requestDate ? 
+                            new Date(request.requestDate).toLocaleDateString() : 'Unknown date'}
+                        </div>
+                        
+                        {request.reason && request.reason !== "No reason provided" && (
+                          <div className="history-reason-mobile">
+                            {request.reason}
+                          </div>
+                        )}
+                        
+                        {request.approvedAt && (
+                          <div className="history-processed-mobile">
+                            {request.status === "approved" ? "Approved" : "Rejected"} •{" "}
+                            {new Date(request.approvedAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </main>
 
-      {/* Bottom Navigation Bar - Fixed at bottom */}
-      <nav className="bottom-nav">
+      {/* Bottom Navigation with Logout */}
+      <nav className="mobile-bottom-nav">
         <button 
           className={`nav-item ${isActiveRoute('/staff') && !isActiveRoute('/staff/salary') && !isActiveRoute('/staff/advance') && !isActiveRoute('/staff/availability') ? 'active' : ''}`}
           onClick={() => safeNavigate('/staff')}
         >
           <span className="nav-icon">📊</span>
-          <span className="nav-text">Dashboard</span>
+          <span className="nav-label">Dashboard</span>
         </button>
         
         <button 
@@ -611,7 +545,7 @@ export default function RequestAdvance({ staffData, onLogout }) {
           onClick={() => safeNavigate('/staff/salary')}
         >
           <span className="nav-icon">💰</span>
-          <span className="nav-text">Salary</span>
+          <span className="nav-label">Salary</span>
         </button>
         
         <button 
@@ -619,21 +553,20 @@ export default function RequestAdvance({ staffData, onLogout }) {
           onClick={() => safeNavigate('/staff/advance')}
         >
           <span className="nav-icon">📋</span>
-          <span className="nav-text">Advance</span>
+          <span className="nav-label">Advance</span>
         </button>
         
-        {/* ADDED AVAILABILITY BUTTON */}
         <button 
           className={`nav-item ${isActiveRoute('/staff/availability') ? 'active' : ''}`}
           onClick={() => safeNavigate('/staff/availability')}
         >
           <span className="nav-icon">📅</span>
-          <span className="nav-text">Availability</span>
+          <span className="nav-label">Availability</span>
         </button>
-        
+
         <button className="nav-item logout-item" onClick={handleLogout}>
           <span className="nav-icon">🚪</span>
-          <span className="nav-text">Logout</span>
+          <span className="nav-label">Logout</span>
         </button>
       </nav>
     </div>

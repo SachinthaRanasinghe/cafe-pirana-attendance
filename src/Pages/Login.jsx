@@ -1,21 +1,20 @@
-// src/Pages/Login.jsx
 import { useState } from "react";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '../firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { auth, db } from "../firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import "./Login.css";
 
-export default function Login({ onStaffLogin, onAdminLogin }) {
+export default function Login({ onStaffLogin }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [staffName, setStaffName] = useState("");
   const [staffEmail, setStaffEmail] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Staff Registration
+  // 🧾 Staff Registration
   const handleStaffRegister = async (e) => {
     e.preventDefault();
-    
+
     if (!staffName.trim() || !staffEmail.trim() || !staffPassword.trim()) {
       alert("Please fill in all fields.");
       return;
@@ -32,31 +31,28 @@ export default function Login({ onStaffLogin, onAdminLogin }) {
       const userCredential = await createUserWithEmailAndPassword(auth, staffEmail, staffPassword);
       const user = userCredential.user;
 
-      // Create staff profile - USE THE SAME PROPERTY NAMES CONSISTENTLY
       const staffProfile = {
-        staffName: staffName.trim(), // Use staffName consistently
-        staffEmail: staffEmail.trim(), // Use staffEmail consistently  
-        staffId: `CP${Date.now().toString().slice(-4)}`, // Use staffId consistently
+        staffName: staffName.trim(),
+        staffEmail: staffEmail.trim(),
+        staffId: `CP${Date.now().toString().slice(-4)}`,
         createdAt: new Date().toISOString(),
         totalHours: 0,
         sessionsCount: 0,
-        uid: user.uid
+        uid: user.uid,
       };
 
-      console.log("Creating staff profile:", staffProfile);
-      await setDoc(doc(db, 'staff', user.uid), staffProfile);
+      await setDoc(doc(db, "staff", user.uid), staffProfile);
+      alert("✅ Account created successfully! You can now log in.");
 
-      alert("✅ Account created successfully! You can now login.");
       setIsRegistering(false);
       setStaffName("");
       setStaffEmail("");
       setStaffPassword("");
-      
     } catch (error) {
       console.error("Registration error:", error);
-      if (error.code === 'auth/email-already-in-use') {
+      if (error.code === "auth/email-already-in-use") {
         alert("❌ Email already registered. Please use a different email or login.");
-      } else if (error.code === 'auth/invalid-email') {
+      } else if (error.code === "auth/invalid-email") {
         alert("❌ Invalid email address.");
       } else {
         alert("❌ Registration failed: " + error.message);
@@ -66,10 +62,10 @@ export default function Login({ onStaffLogin, onAdminLogin }) {
     }
   };
 
-  // Staff Login
+  // 🔐 Staff Login
   const handleStaffLogin = async (e) => {
     e.preventDefault();
-    
+
     if (!staffEmail.trim() || !staffPassword.trim()) {
       alert("Please enter both email and password.");
       return;
@@ -81,43 +77,36 @@ export default function Login({ onStaffLogin, onAdminLogin }) {
       const userCredential = await signInWithEmailAndPassword(auth, staffEmail, staffPassword);
       const user = userCredential.user;
 
-      // Get staff profile from Firestore
-      const staffDoc = await getDoc(doc(db, 'staff', user.uid));
-      
+      const staffDoc = await getDoc(doc(db, "staff", user.uid));
+
       if (staffDoc.exists()) {
         const staffData = staffDoc.data();
-        console.log("Staff data from Firestore:", staffData);
-        
-        // Use whatever properties exist in Firestore
+
         const staffProfile = {
           uid: user.uid,
-          staffName: staffData.staffName || staffData.name, // Try both
-          staffId: staffData.staffId || staffData.id,       // Try both
-          staffEmail: staffData.staffEmail || staffData.email // Try both
+          staffName: staffData.staffName || staffData.name,
+          staffId: staffData.staffId || staffData.id,
+          staffEmail: staffData.staffEmail || staffData.email,
         };
 
-        console.log("Final staff profile:", staffProfile);
-        
-        // Call the callback to notify App.jsx
-        if (onStaffLogin && typeof onStaffLogin === 'function') {
+        if (onStaffLogin && typeof onStaffLogin === "function") {
           onStaffLogin(staffProfile);
         } else {
-          console.error('onStaffLogin is not a function:', onStaffLogin);
-          alert('Login system error. Please try again.');
+          console.error("onStaffLogin is not a function:", onStaffLogin);
+          alert("Login system error. Please try again.");
         }
       } else {
         alert("❌ Staff profile not found. Please contact administrator.");
         await auth.signOut();
       }
-      
     } catch (error) {
       console.error("Login error:", error);
-      if (error.code === 'auth/user-not-found') {
+      if (error.code === "auth/user-not-found") {
         alert("❌ Account not found. Please register first.");
         setIsRegistering(true);
-      } else if (error.code === 'auth/wrong-password') {
+      } else if (error.code === "auth/wrong-password") {
         alert("❌ Incorrect password.");
-      } else if (error.code === 'auth/invalid-email') {
+      } else if (error.code === "auth/invalid-email") {
         alert("❌ Invalid email address.");
       } else {
         alert("❌ Login failed: " + error.message);
@@ -127,20 +116,10 @@ export default function Login({ onStaffLogin, onAdminLogin }) {
     }
   };
 
-  // Add Admin Login handler
-  const handleAdminLoginClick = () => {
-    if (onAdminLogin && typeof onAdminLogin === 'function') {
-      onAdminLogin();
-    } else {
-      console.error('onAdminLogin is not a function:', onAdminLogin);
-      alert('Admin login system error. Please try again.');
-    }
-  };
-
   return (
     <div className="app">
       <div className="login-container">
-        {/* Cafe Piranha Branding */}
+        {/* ☕ Branding */}
         <div className="login-header">
           <div className="cafe-brand">
             <div className="cafe-logo">☕</div>
@@ -152,12 +131,17 @@ export default function Login({ onStaffLogin, onAdminLogin }) {
             </div>
           </div>
           <p className="login-subtitle">
-            {isRegistering ? "Create Your Staff Account" : "Working Time & Attendance System"}
+            {isRegistering
+              ? "Create your staff account to access shifts & salary"
+              : "Staff Access • Work & Attendance System"}
           </p>
         </div>
 
-        {/* Staff Login/Register Form */}
-        <form onSubmit={isRegistering ? handleStaffRegister : handleStaffLogin} className="login-form">
+        {/* 📋 Form */}
+        <form
+          onSubmit={isRegistering ? handleStaffRegister : handleStaffLogin}
+          className="login-form"
+        >
           {isRegistering && (
             <div className="input-group">
               <label htmlFor="staffName" className="input-label">
@@ -197,7 +181,11 @@ export default function Login({ onStaffLogin, onAdminLogin }) {
             <input
               id="staffPassword"
               type="password"
-              placeholder={isRegistering ? "Create a password (min. 6 characters)" : "Enter your password"}
+              placeholder={
+                isRegistering
+                  ? "Create a password (min. 6 characters)"
+                  : "Enter your password"
+              }
               value={staffPassword}
               onChange={(e) => setStaffPassword(e.target.value)}
               className="form-input"
@@ -206,57 +194,43 @@ export default function Login({ onStaffLogin, onAdminLogin }) {
             />
           </div>
 
-          <button 
-            type="submit" 
-            className={`login-btn ${isLoading ? 'loading' : ''}`}
+          <button
+            type="submit"
+            className={`login-btn ${isLoading ? "loading" : ""}`}
             disabled={isLoading}
           >
             {isLoading ? (
               <>
                 <div className="spinner"></div>
-                {isRegistering ? 'Creating Account...' : 'Signing In...'}
+                {isRegistering ? "Creating Account..." : "Signing In..."}
               </>
+            ) : isRegistering ? (
+              "Create Account"
             ) : (
-              isRegistering ? 'Create Account' : 'Sign In'
+              "Sign In"
             )}
           </button>
 
           <div className="form-switch">
-            <button 
+            <button
               type="button"
               className="switch-btn"
               onClick={() => setIsRegistering(!isRegistering)}
             >
-              {isRegistering 
-                ? '← Already have an account? Sign In' 
-                : 'Need an account? Register Here'
-              }
+              {isRegistering
+                ? "← Already have an account? Sign In"
+                : "Need an account? Register Here"}
             </button>
           </div>
         </form>
 
-        {/* Admin Access Section */}
-        <div className="admin-section">
-          <div className="divider">
-            <span>or</span>
-          </div>
-          <button 
-            className="admin-login-btn"
-            onClick={handleAdminLoginClick}
-          >
-            <span className="admin-icon">⚙️</span>
-            Administrator Access
-          </button>
-        </div>
-
-        {/* Security Notice */}
+        {/* 🔒 Security Notice */}
         <div className="security-notice">
           <div className="security-icon">🔒</div>
           <p>
-            {isRegistering 
+            {isRegistering
               ? "Your account data is securely stored and encrypted."
-              : "Secure staff access only. Unauthorized access prohibited."
-            }
+              : "Authorized staff access only. Secure connection enabled."}
           </p>
         </div>
       </div>

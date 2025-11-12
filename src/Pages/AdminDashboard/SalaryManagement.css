@@ -1,87 +1,470 @@
-/* ======== SALARY MANAGEMENT SPECIFIC STYLES ======== */
-.salary-management {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-  color: #e2e8f0;
-  font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
-  display: flex;
-  flex-direction: column;
+/* src/Pages/AdminDashboard/SalaryManagement.css */
+
+/* === Mobile-First Styles === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* ======== STICKY NAVIGATION HEADER ======== */
-.admin-nav-header {
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 16px 20px;
+.salary-management {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 80px;
+}
+
+/* === Mobile Header === */
+.mobile-header {
+  background: rgba(30, 41, 59, 0.95);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  backdrop-filter: blur(12px);
+  padding: 12px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  transition: all 0.3s ease;
 }
 
-/* ======== SALARY SETUP FORM ======== */
-.salary-setup-form {
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-icon {
+  font-size: 1.5rem;
+}
+
+.brand-text h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #f8fafc;
+  line-height: 1.2;
+}
+
+.brand-text span {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+  padding: 6px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    transform: scale(1); 
+    opacity: 1; 
+  }
+  50% { 
+    transform: scale(1.3); 
+    opacity: 0.7; 
+  }
+}
+
+/* === Main Content === */
+.mobile-main {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* === Welcome Section === */
+.welcome-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.welcome-content h2 {
+  font-size: 1.3rem;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.welcome-content p {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.date-display-mobile {
+  background: #1e293b;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+/* === Stats Section === */
+.stats-section {
+  margin-bottom: 20px;
+}
+
+.stats-grid-mobile {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stat-card-mobile {
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  transition: all 0.2s ease;
+}
+
+.stat-card-mobile:active {
+  transform: scale(0.98);
+}
+
+.stat-card-mobile.highlight {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.stat-icon-mobile {
+  font-size: 1.2rem;
+  margin-bottom: 6px;
+}
+
+.stat-icon-mobile.primary {
+  color: #3b82f6;
+}
+
+.stat-icon-mobile.success {
+  color: #10b981;
+}
+
+.stat-icon-mobile.accent {
+  color: #8b5cf6;
+}
+
+.stat-icon-mobile.warning {
+  color: #f59e0b;
+}
+
+.stat-icon-mobile.secondary {
+  color: #64748b;
+}
+
+.stat-icon-mobile.info {
+  color: #06b6d4;
+}
+
+.stat-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 2px;
+}
+
+.stat-label {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* === Tabs Section === */
+.tabs-section {
+  margin-bottom: 16px;
+}
+
+.tabs-container {
+  display: flex;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px 8px;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-weight: 600;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.form-group {
+.tab-btn.active {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.tab-icon {
+  font-size: 1rem;
+}
+
+.tab-text {
+  font-size: 0.7rem;
+}
+
+/* === Search Section === */
+.search-section {
+  margin-bottom: 16px;
+}
+
+.search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.search-icon {
+  color: #94a3b8;
+  margin-right: 8px;
+  font-size: 0.9rem;
+}
+
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #f8fafc;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: #94a3b8;
+}
+
+.clear-search {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 4px;
+}
+
+/* === Section Styles === */
+.section-mobile {
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.section-header-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-header-mobile h3 {
+  font-size: 1.1rem;
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+.badge-mobile {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-mobile.success {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.badge-mobile.warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.badge-mobile.pending {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+/* === Empty States === */
+.empty-state-mobile {
+  text-align: center;
+  padding: 40px 20px;
+  color: #94a3b8;
+}
+
+.empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty-state-mobile h4 {
+  font-size: 1rem;
+  color: #cbd5e1;
+  margin-bottom: 8px;
+}
+
+.empty-state-mobile p {
+  font-size: 0.85rem;
+}
+
+/* === Salary Setup Form === */
+.salary-setup-form-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group-mobile {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.form-label {
+.form-label-mobile {
   font-size: 0.9rem;
   font-weight: 600;
   color: #f8fafc;
 }
 
-.form-select, .form-input {
+.form-select-mobile, .form-input-mobile {
   width: 100%;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #334155;
+  border: 1px solid #475569;
   border-radius: 8px;
   padding: 12px;
   color: #f8fafc;
   font-size: 0.9rem;
-  transition: all 0.3s ease;
-}
-
-.form-select:focus, .form-input:focus {
   outline: none;
+}
+
+.form-select-mobile:focus, .form-input-mobile:focus {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
-.form-select option {
-  background: #1e293b;
+/* Staff Info Card */
+.staff-info-card-mobile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.staff-avatar-large {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: white;
+  font-size: 1.3rem;
+}
+
+.staff-details-large h4 {
+  font-weight: 600;
   color: #f8fafc;
-  padding: 8px;
+  margin-bottom: 2px;
+  font-size: 1rem;
 }
 
-/* ======== SALARY BREAKDOWN CARD ======== */
-.salary-breakdown-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.staff-id {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.current-salary-info {
+  margin-top: 6px;
+}
+
+.salary-amount {
+  font-size: 0.8rem;
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.advance-info {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.advance-info span {
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* Salary Breakdown Card */
+.salary-breakdown-card-mobile {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.1);
   border-radius: 12px;
   padding: 16px;
-  margin-top: 8px;
 }
 
-.breakdown-header {
+.breakdown-header-mobile {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
 }
 
-.breakdown-header h4 {
+.breakdown-header-mobile h4 {
   font-size: 0.9rem;
   font-weight: 600;
   color: #f8fafc;
@@ -97,22 +480,30 @@
   font-weight: 600;
 }
 
-.breakdown-grid {
-  display: grid;
-  grid-template-columns: 1fr;
+.breakdown-grid-mobile {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
-.breakdown-item {
+.breakdown-item-mobile {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
 }
 
-.breakdown-item:last-child {
+.breakdown-item-mobile:last-child {
   border-bottom: none;
+}
+
+.breakdown-item-mobile.highlight {
+  background: rgba(245, 158, 11, 0.1);
+  margin: 0 -16px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
 }
 
 .breakdown-label {
@@ -126,46 +517,71 @@
   color: #f8fafc;
 }
 
-.breakdown-value.highlight {
-  color: #f59e0b;
-}
-
-/* ======== SALARIES LIST ======== */
-.salaries-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.salary-item {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 20px;
-  transition: all 0.3s ease;
-}
-
-.salary-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-}
-
-.salary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.staff-info {
+/* Set Salary Button */
+.btn-set-salary-mobile {
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+}
+
+.btn-set-salary-mobile:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-set-salary-mobile:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* === Salaries List === */
+.salaries-list-mobile {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
-.staff-avatar {
-  width: 44px;
-  height: 44px;
+.salary-item-mobile {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.salary-item-mobile:active {
+  background: rgba(51, 65, 85, 0.5);
+  transform: scale(0.995);
+}
+
+.salary-header-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.staff-info-mobile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.staff-avatar-mobile {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: linear-gradient(135deg, #8b5cf6, #7c3aed);
   display: flex;
@@ -173,202 +589,278 @@
   justify-content: center;
   font-weight: 700;
   color: white;
-  font-size: 1.1rem;
-}
-
-.staff-details h4 {
-  font-weight: 600;
-  color: #f8fafc;
-  margin: 0 0 2px 0;
   font-size: 1rem;
 }
 
-.staff-id {
-  font-size: 0.75rem;
-  color: #94a3b8;
+.staff-details-mobile h4 {
+  font-weight: 600;
+  color: #f8fafc;
+  margin: 0 0 2px 0;
+  font-size: 0.9rem;
 }
 
-.salary-amount-main {
+.salary-amount-main-mobile {
   text-align: right;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #f8fafc;
 }
 
 .salary-period {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #94a3b8;
   font-weight: 500;
   margin-top: 2px;
 }
 
-/* ======== SALARY DETAILS ======== */
-.salary-details {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
+/* Quick Stats */
+.quick-stats-mobile {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.salary-breakdown-mini {
-  background: rgba(255, 255, 255, 0.03);
+.quick-stat {
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
-  padding: 12px;
+  padding: 8px;
+  text-align: center;
 }
 
-.breakdown-row {
+.quick-stat.highlight {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.quick-stat .stat-label {
+  font-size: 0.6rem;
+  color: #94a3b8;
+  margin-bottom: 2px;
+}
+
+.quick-stat .stat-value {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+/* Financial Summary */
+.financial-summary-mobile {
+  margin-bottom: 12px;
+}
+
+.summary-section-mobile {
+  margin-bottom: 8px;
+}
+
+.summary-item-mobile {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
+  padding: 6px 0;
   font-size: 0.8rem;
 }
 
-.breakdown-row:first-child {
-  padding-top: 0;
+.summary-item-mobile.positive .summary-value {
+  color: #10b981;
 }
 
-.breakdown-row:last-child {
-  padding-bottom: 0;
+.summary-item-mobile.negative .summary-value {
+  color: #ef4444;
 }
 
-.breakdown-row span:first-child {
+.summary-item-mobile.total-amount .summary-value {
+  color: #3b82f6;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.summary-label {
   color: #94a3b8;
 }
 
-.breakdown-row span:last-child {
+.summary-value {
   color: #f8fafc;
   font-weight: 600;
 }
 
-.salary-meta {
+/* Advance Progress */
+.advance-progress-section-mobile {
+  margin-bottom: 12px;
+}
+
+.progress-header-mobile {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 0.75rem;
-  color: #64748b;
+  color: #94a3b8;
+  margin-bottom: 6px;
 }
 
-.update-date {
-  font-style: italic;
+.progress-bar-mobile {
+  width: 100%;
+  height: 6px;
+  background: #334155;
+  border-radius: 3px;
+  overflow: hidden;
 }
 
-/* ======== SALARY ACTIONS ======== */
-.salary-actions {
-  display: flex;
-  gap: 10px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+.progress-fill-mobile {
+  height: 100%;
+  background: linear-gradient(90deg, #ef4444, #f59e0b);
+  border-radius: 3px;
+  transition: width 0.3s ease;
 }
 
-.edit-btn {
-  flex: 1;
+/* Salary Actions */
+.salary-actions-mobile {
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
 }
 
-/* ======== SET SALARY BUTTON ======== */
-.set-salary-btn {
-  margin-top: 8px;
-  border: none;
-  border-radius: 10px;
-  padding: 14px 20px;
-  font-size: 0.9rem;
-  font-weight: 600;
+.btn-edit-salary-mobile {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  color: #3b82f6;
+  border: 1.5px solid #3b82f6;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  min-height: 48px;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: white;
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  transition: all 0.2s ease;
 }
 
-.set-salary-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+.btn-edit-salary-mobile:active {
+  background: rgba(59, 130, 246, 0.1);
 }
 
-.set-salary-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-/* ======== QUICK ACTIONS ======== */
-.action-buttons {
+/* Quick Actions */
+.action-buttons-mobile {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
-/* ======== RESPONSIVE DESIGN ======== */
-@media (max-width: 480px) {
-  .salary-header {
-    flex-direction: column;
-    align-items: flex-start;
+.btn-quick-action-mobile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-quick-action-mobile.outline {
+  background: transparent;
+  border: 1.5px solid #475569;
+  color: #cbd5e1;
+}
+
+.btn-quick-action-mobile:active {
+  transform: scale(0.98);
+}
+
+/* === Bottom Navigation === */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  backdrop-filter: blur(20px);
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0;
+  z-index: 1000;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 60px;
+}
+
+.nav-item:active {
+  background: rgba(51, 65, 85, 0.4);
+  transform: scale(0.95);
+}
+
+.nav-item.active {
+  color: #3b82f6;
+}
+
+.nav-item.logout-item {
+  color: #ef4444;
+}
+
+.nav-icon {
+  font-size: 1.2rem;
+}
+
+.nav-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+/* === Responsive Design === */
+@media (min-width: 400px) and (max-width: 768px) {
+  .mobile-main {
+    padding: 20px;
+  }
+  
+  .stats-grid-mobile {
     gap: 12px;
   }
   
-  .salary-amount-main {
-    text-align: left;
-    align-self: flex-start;
+  .stat-card-mobile {
+    padding: 16px 12px;
+  }
+}
+
+@media (min-width: 768px) {
+  .stats-grid-mobile {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* === Safe Area Insets for Notch Phones === */
+@supports (padding: max(0px)) {
+  .mobile-header {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-top: max(12px, env(safe-area-inset-top));
   }
   
-  .action-buttons {
-    grid-template-columns: 1fr;
+  .mobile-bottom-nav {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
   
-  .salary-actions {
-    flex-direction: column;
+  .mobile-main {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
   }
-  
-  .breakdown-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 360px) {
-  .staff-info {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  
-  .salary-breakdown-mini {
-    padding: 8px;
-  }
-}
-
-/* ======== SCROLL BEHAVIOR ======== */
-.admin-container {
-  flex: 1;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-/* Ensure smooth scrolling */
-.admin-container::-webkit-scrollbar {
-  width: 6px;
-}
-
-.admin-container::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
-}
-
-.admin-container::-webkit-scrollbar-thumb {
-  background: rgba(59, 130, 246, 0.5);
-  border-radius: 3px;
-}
-
-.admin-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.7);
 }

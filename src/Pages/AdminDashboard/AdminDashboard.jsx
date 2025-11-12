@@ -30,8 +30,7 @@ export default function AdminDashboard({ onLogout }) {
   // Helper functions for shift-based tracking
   const getShiftDate = (timestamp) => {
     const date = new Date(timestamp);
-    // Consider shifts starting after 6 PM as part of the next day's schedule
-    if (date.getHours() >= 18) { // 6 PM
+    if (date.getHours() >= 18) {
       date.setDate(date.getDate() + 1);
     }
     return date.toDateString();
@@ -197,10 +196,10 @@ export default function AdminDashboard({ onLogout }) {
       doc.text(`Cross-Midnight: ${filteredSessions.filter(s => s.crossMidnight).length}`, 14, finalY + 24);
 
       doc.save(`cafe-piranha-report-${selectedDate}.pdf`);
-      showNotification("PDF report generated successfully!", "success");
+      alert("PDF report generated successfully!");
     } catch (err) {
       console.error(err);
-      showNotification("Error generating PDF: " + err.message, "error");
+      alert("Error generating PDF: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -245,9 +244,9 @@ export default function AdminDashboard({ onLogout }) {
       link.href = URL.createObjectURL(blob);
       link.download = `cafe-piranha-data-${selectedDate}.csv`;
       link.click();
-      showNotification("CSV data exported successfully!", "success");
+      alert("CSV data exported successfully!");
     } catch (err) {
-      showNotification("Error exporting CSV: " + err.message, "error");
+      alert("Error exporting CSV: " + err.message);
     }
   };
 
@@ -259,7 +258,7 @@ export default function AdminDashboard({ onLogout }) {
     if (!confirmClear) return;
     const userInput = prompt('Type "DELETE ALL" to confirm:');
     if (userInput !== "DELETE ALL") {
-      showNotification("Data deletion cancelled", "info");
+      alert("Data deletion cancelled");
       return;
     }
 
@@ -273,9 +272,9 @@ export default function AdminDashboard({ onLogout }) {
         count++;
       });
       await batch.commit();
-      showNotification(`Successfully deleted ${count} attendance records`, "success");
+      alert(`Successfully deleted ${count} attendance records`);
     } catch (err) {
-      showNotification("Error deleting data: " + err.message, "error");
+      alert("Error deleting data: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -293,25 +292,15 @@ export default function AdminDashboard({ onLogout }) {
         count++;
       });
       await batch.commit();
-      showNotification(`Deleted ${count} records for selected date`, "success");
+      alert(`Deleted ${count} records for selected date`);
     } catch (err) {
-      showNotification("Error clearing date data: " + err.message, "error");
+      alert("Error clearing date data: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   // === Helper functions ===
-  const showNotification = (msg, type = "info") => {
-    const styles = {
-      success: "background: #4CAF50; color: white; padding: 12px; border-radius: 4px;",
-      error: "background: #f44336; color: white; padding: 12px; border-radius: 4px;",
-      info: "background: #2196F3; color: white; padding: 12px; border-radius: 4px;"
-    };
-    console.log(`%c${msg}`, styles[type] || styles.info);
-    alert(msg);
-  };
-
   const formatTime = (t) =>
     new Date(t).toLocaleTimeString("en-US", {
       hour: "2-digit",
@@ -347,163 +336,172 @@ export default function AdminDashboard({ onLogout }) {
 
   return (
     <div className="admin-dashboard">
-      {/* Navigation Header */}
-      <nav className="admin-nav-header">
-        <div className="nav-brand">
-          <div className="brand-icon">🏪</div>
-          <div className="brand-text">
-            <h2>Cafe Piranha</h2>
-            <span>Admin Portal</span>
+      {/* Mobile Header */}
+      <header className="mobile-header">
+        <div className="header-content">
+          <div className="header-brand">
+            <div className="brand-icon">🏪</div>
+            <div className="brand-text">
+              <h1>Cafe Piranha</h1>
+              <span>Admin Portal</span>
+            </div>
+          </div>
+          
+          <div className="header-actions">
+            <div className="live-indicator">
+              <span className="live-dot"></span>
+              <span>Live</span>
+            </div>
           </div>
         </div>
-        
-        <div className="nav-actions">
-          <div className="live-indicator">
-            <span className="live-dot"></span>
-            <span>Live</span>
-          </div>
-        </div>
-      </nav>
+      </header>
 
-      {/* Main Dashboard Content */}
-      <div className="admin-container">
-        {/* Welcome Header */}
-        <div className="welcome-header">
-          <div className="welcome-text">
-            <h1>Admin Dashboard</h1>
-            <p>Real-time staff monitoring & management</p>
+      {/* Main Content */}
+      <main className="mobile-main">
+        {/* Welcome Section */}
+        <section className="welcome-section">
+          <div className="welcome-content">
+            <h2>Admin Dashboard</h2>
+            <p>Real-time staff monitoring</p>
           </div>
-          <div className="date-display">
+          <div className="date-display-mobile">
             {new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
+              weekday: 'short', 
+              month: 'short', 
               day: 'numeric' 
             })}
           </div>
-        </div>
+        </section>
 
         {/* Quick Stats */}
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-icon primary">👥</div>
-            <div className="stat-content">
-              <h3>{stats.totalStaff}</h3>
-              <p>Staff Today</p>
+        <section className="stats-section">
+          <div className="stats-grid-mobile">
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile primary">👥</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{stats.totalStaff}</div>
+                <div className="stat-label">Staff Today</div>
+              </div>
             </div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-icon success">🟢</div>
-            <div className="stat-content">
-              <h3>{stats.activeStaff}</h3>
-              <p>Active Now</p>
+            
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile success">🟢</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{stats.activeStaff}</div>
+                <div className="stat-label">Active Now</div>
+              </div>
             </div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-icon accent">📊</div>
-            <div className="stat-content">
-              <h3>{stats.totalSessions}</h3>
-              <p>Total Sessions</p>
+            
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile accent">📊</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{stats.totalSessions}</div>
+                <div className="stat-label">Sessions</div>
+              </div>
             </div>
-          </div>
 
-          <div className="stat-card">
-            <div className="stat-icon warning">🌙</div>
-            <div className="stat-content">
-              <h3>{stats.nightShifts}</h3>
-              <p>Night Shifts</p>
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile warning">🌙</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{stats.nightShifts}</div>
+                <div className="stat-label">Night Shifts</div>
+              </div>
             </div>
-          </div>
 
-          <div className="stat-card">
-            <div className="stat-icon secondary">⏰</div>
-            <div className="stat-content">
-              <h3>{stats.crossMidnight}</h3>
-              <p>Cross Midnight</p>
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile secondary">⏰</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{stats.crossMidnight}</div>
+                <div className="stat-label">Cross Midnight</div>
+              </div>
             </div>
-          </div>
 
-          <div className="stat-card">
-            <div className="stat-icon info">⚡</div>
-            <div className="stat-content">
-              <h3>{stats.otSessions}</h3>
-              <p>OT Sessions</p>
-              <div className="stat-detail">{stats.totalOvertime.toFixed(1)}h total</div>
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile info">⚡</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">{stats.otSessions}</div>
+                <div className="stat-label">OT Sessions</div>
+                <div className="stat-detail">{stats.totalOvertime.toFixed(1)}h</div>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Tab Navigation */}
-        <div className="tab-navigation">
-          <button 
-            className={`tab-btn ${activeTab === "overview" ? "active" : ""}`}
-            onClick={() => setActiveTab("overview")}
-          >
-            <span className="tab-icon">📊</span>
-            Overview
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === "active" ? "active" : ""}`}
-            onClick={() => setActiveTab("active")}
-          >
-            <span className="tab-icon">🟢</span>
-            Active
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === "sessions" ? "active" : ""}`}
-            onClick={() => setActiveTab("sessions")}
-          >
-            <span className="tab-icon">📋</span>
-            Sessions
-          </button>
-        </div>
+        <section className="tabs-section">
+          <div className="tabs-container">
+            <button 
+              className={`tab-btn ${activeTab === "overview" ? "active" : ""}`}
+              onClick={() => setActiveTab("overview")}
+            >
+              <span className="tab-icon">📊</span>
+              <span className="tab-text">Overview</span>
+            </button>
+            <button 
+              className={`tab-btn ${activeTab === "active" ? "active" : ""}`}
+              onClick={() => setActiveTab("active")}
+            >
+              <span className="tab-icon">🟢</span>
+              <span className="tab-text">Active</span>
+            </button>
+            <button 
+              className={`tab-btn ${activeTab === "sessions" ? "active" : ""}`}
+              onClick={() => setActiveTab("sessions")}
+            >
+              <span className="tab-icon">📋</span>
+              <span className="tab-text">Sessions</span>
+            </button>
+          </div>
+        </section>
 
         {/* Date Filter */}
-        <div className="filter-card">
-          <div className="filter-header">
-            <h3>Select Shift Date</h3>
-            <div className="date-badge">
-              {new Date(selectedDate).toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric' 
-              })}
-              <div className="shift-info">(Shifts after 6PM count for next day)</div>
+        <section className="filter-section">
+          <div className="filter-card-mobile">
+            <div className="filter-header">
+              <h3>Select Shift Date</h3>
+              <div className="date-badge">
+                {new Date(selectedDate).toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric' 
+                })}
+              </div>
+            </div>
+            <input 
+              type="date" 
+              value={selectedDate} 
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="date-input-mobile"
+            />
+            <div className="shift-info">
+              Shifts after 6PM count for next day
             </div>
           </div>
-          <input 
-            type="date" 
-            value={selectedDate} 
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="date-input"
-          />
-        </div>
+        </section>
 
         {/* Overview Tab Content */}
         {activeTab === "overview" && (
           <>
             {/* Active Staff Section */}
-            <div className="section-card">
-              <div className="card-header">
-                <h2>Currently Working</h2>
-                <span className="badge success">{activeStaff.length}</span>
+            <section className="section-mobile">
+              <div className="section-header-mobile">
+                <h3>Currently Working</h3>
+                <span className="badge-mobile success">{activeStaff.length}</span>
               </div>
               
               {activeStaff.length === 0 ? (
-                <div className="empty-state">
+                <div className="empty-state-mobile">
                   <div className="empty-icon">👥</div>
-                  <h3>No Active Staff</h3>
+                  <h4>No Active Staff</h4>
                   <p>No staff members are currently clocked in</p>
                 </div>
               ) : (
-                <div className="active-staff-list">
+                <div className="active-staff-list-mobile">
                   {activeStaff.map((staff) => (
-                    <div key={staff.id} className="active-staff-item">
-                      <div className="staff-avatar">
+                    <div key={staff.id} className="active-staff-item-mobile">
+                      <div className="staff-avatar-mobile">
                         {staff.staffName?.charAt(0).toUpperCase()}
                       </div>
-                      <div className="staff-info">
+                      <div className="staff-info-mobile">
                         <div className="staff-name">{staff.staffName}</div>
                         <div className="staff-id">ID: {staff.staffId}</div>
                         <div className="session-timer">
@@ -518,27 +516,27 @@ export default function AdminDashboard({ onLogout }) {
                   ))}
                 </div>
               )}
-            </div>
+            </section>
 
             {/* Staff Summary */}
-            <div className="section-card">
-              <div className="card-header">
-                <h2>Staff Summary</h2>
-                <span className="badge">{Object.keys(staffSummary).length}</span>
+            <section className="section-mobile">
+              <div className="section-header-mobile">
+                <h3>Staff Summary</h3>
+                <span className="badge-mobile">{Object.keys(staffSummary).length}</span>
               </div>
               
               {Object.keys(staffSummary).length === 0 ? (
-                <div className="empty-state">
+                <div className="empty-state-mobile">
                   <div className="empty-icon">📊</div>
-                  <h3>No Activity</h3>
+                  <h4>No Activity</h4>
                   <p>No staff activity for selected shift date</p>
                 </div>
               ) : (
-                <div className="staff-summary-list">
+                <div className="staff-summary-list-mobile">
                   {Object.entries(staffSummary).map(([uid, data]) => (
-                    <div key={uid} className="summary-item">
-                      <div className="summary-header">
-                        <div className="staff-main">
+                    <div key={uid} className="summary-item-mobile">
+                      <div className="summary-header-mobile">
+                        <div className="staff-main-mobile">
                           <h4>{data.staffName}</h4>
                           <span className="staff-tag">ID: {data.staffId}</span>
                         </div>
@@ -549,16 +547,16 @@ export default function AdminDashboard({ onLogout }) {
                           )}
                         </div>
                       </div>
-                      <div className="summary-stats">
-                        <div className="stat">
+                      <div className="summary-stats-mobile">
+                        <div className="stat-mobile">
                           <span className="stat-label">Sessions:</span>
                           <span className="stat-value">{data.sessions}</span>
                         </div>
-                        <div className="stat">
+                        <div className="stat-mobile">
                           <span className="stat-label">Night Shifts:</span>
                           <span className="stat-value">{data.nightShifts}</span>
                         </div>
-                        <div className="stat">
+                        <div className="stat-mobile">
                           <span className="stat-label">Last Activity:</span>
                           <span className="stat-value">{formatTime(data.lastActivity)}</span>
                         </div>
@@ -567,32 +565,32 @@ export default function AdminDashboard({ onLogout }) {
                   ))}
                 </div>
               )}
-            </div>
+            </section>
           </>
         )}
 
         {/* Active Staff Tab Content */}
         {activeTab === "active" && (
-          <div className="section-card">
-            <div className="card-header">
-              <h2>Active Staff Members</h2>
-              <span className="badge success">{activeStaff.length}</span>
+          <section className="section-mobile">
+            <div className="section-header-mobile">
+              <h3>Active Staff Members</h3>
+              <span className="badge-mobile success">{activeStaff.length}</span>
             </div>
             
             {activeStaff.length === 0 ? (
-              <div className="empty-state">
+              <div className="empty-state-mobile">
                 <div className="empty-icon">🟢</div>
-                <h3>All Staff Clocked Out</h3>
+                <h4>All Staff Clocked Out</h4>
                 <p>No active sessions at the moment</p>
               </div>
             ) : (
-              <div className="active-staff-grid">
+              <div className="active-staff-grid-mobile">
                 {activeStaff.map((staff) => (
-                  <div key={staff.id} className="active-staff-card">
-                    <div className="card-avatar">
+                  <div key={staff.id} className="active-staff-card-mobile">
+                    <div className="card-avatar-mobile">
                       {staff.staffName?.charAt(0).toUpperCase()}
                     </div>
-                    <div className="card-content">
+                    <div className="card-content-mobile">
                       <h4>{staff.staffName}</h4>
                       <p className="staff-meta">ID: {staff.staffId}</p>
                       <div className="active-timer">
@@ -607,29 +605,29 @@ export default function AdminDashboard({ onLogout }) {
                 ))}
               </div>
             )}
-          </div>
+          </section>
         )}
 
         {/* Sessions Tab Content */}
         {activeTab === "sessions" && (
-          <div className="section-card">
-            <div className="card-header">
-              <h2>Session Details</h2>
-              <span className="badge">{filteredSessions.length}</span>
+          <section className="section-mobile">
+            <div className="section-header-mobile">
+              <h3>Session Details</h3>
+              <span className="badge-mobile">{filteredSessions.length}</span>
             </div>
             
             {filteredSessions.length === 0 ? (
-              <div className="empty-state">
+              <div className="empty-state-mobile">
                 <div className="empty-icon">📋</div>
-                <h3>No Sessions</h3>
+                <h4>No Sessions</h4>
                 <p>No sessions recorded for selected shift date</p>
               </div>
             ) : (
-              <div className="sessions-list">
+              <div className="sessions-list-mobile">
                 {filteredSessions.map((session) => (
-                  <div key={session.id} className={`session-item ${!session.clockOut ? 'active' : ''}`}>
-                    <div className="session-header">
-                      <div className="session-staff">
+                  <div key={session.id} className={`session-item-mobile ${!session.clockOut ? 'active' : ''}`}>
+                    <div className="session-header-mobile">
+                      <div className="session-staff-mobile">
                         <strong>{session.staffName}</strong>
                         <span className="staff-id">ID: {session.staffId}</span>
                         <div className="session-shift-info">
@@ -643,19 +641,19 @@ export default function AdminDashboard({ onLogout }) {
                       </div>
                     </div>
                     
-                    <div className="session-times">
-                      <div className="time-block">
+                    <div className="session-times-mobile">
+                      <div className="time-block-mobile">
                         <span className="time-label">Clock In</span>
                         <span className="time-value">{formatTime(session.clockIn)}</span>
                       </div>
                       
                       {session.clockOut ? (
-                        <div className="time-block">
+                        <div className="time-block-mobile">
                           <span className="time-label">Clock Out</span>
                           <span className="time-value">{formatTime(session.clockOut)}</span>
                         </div>
                       ) : (
-                        <div className="time-block active">
+                        <div className="time-block-mobile active">
                           <span className="time-label">Status</span>
                           <span className="time-value">
                             <LiveTimer startTime={new Date(session.clockIn)} />
@@ -665,7 +663,7 @@ export default function AdminDashboard({ onLogout }) {
                     </div>
                     
                     {session.clockOut && (
-                      <div className="session-meta">
+                      <div className="session-meta-mobile">
                         <div className="session-duration">
                           Duration: {formatDuration(session.duration)}
                         </div>
@@ -681,127 +679,126 @@ export default function AdminDashboard({ onLogout }) {
                 ))}
               </div>
             )}
-          </div>
+          </section>
         )}
 
         {/* Management Actions */}
-        <div className="section-card">
-          <div className="card-header">
-            <h2>Data Management</h2>
-            <span className="badge warning">Admin</span>
+        <section className="section-mobile">
+          <div className="section-header-mobile">
+            <h3>Data Management</h3>
+            <span className="badge-mobile warning">Admin</span>
           </div>
           
-          <div className="action-buttons">
+          <div className="action-buttons-mobile">
             <button 
-              className="btn-primary export-btn"
+              className="btn-action-primary"
               onClick={exportToPDF}
               disabled={loading}
             >
               <span className="btn-icon">📊</span>
-              Export PDF
+              <span className="btn-text">Export PDF</span>
             </button>
             
             <button 
-              className="btn-secondary export-btn"
+              className="btn-action-secondary"
               onClick={exportToCSV}
               disabled={loading}
             >
               <span className="btn-icon">📈</span>
-              Export CSV
+              <span className="btn-text">Export CSV</span>
             </button>
             
             <button 
-              className="btn-outline clear-btn"
+              className="btn-action-outline"
               onClick={clearDateData}
               disabled={loading}
             >
               <span className="btn-icon">🗑️</span>
-              Clear Date
+              <span className="btn-text">Clear Date</span>
             </button>
             
             <button 
-              className="btn-danger clear-btn"
+              className="btn-action-danger"
               onClick={clearAllData}
               disabled={loading}
             >
               <span className="btn-icon">🚨</span>
-              Clear All Data
+              <span className="btn-text">Clear All Data</span>
             </button>
           </div>
           
-          <div className="data-summary">
-            <div className="summary-item">
+          <div className="data-summary-mobile">
+            <div className="summary-item-mobile">
               <span>Staff Today:</span>
               <strong>{stats.totalStaff}</strong>
             </div>
-            <div className="summary-item">
+            <div className="summary-item-mobile">
               <span>Total Sessions:</span>
               <strong>{stats.totalSessions}</strong>
             </div>
-            <div className="summary-item">
+            <div className="summary-item-mobile">
               <span>Active Now:</span>
               <strong>{stats.activeStaff}</strong>
             </div>
-            <div className="summary-item">
+            <div className="summary-item-mobile">
               <span>Night Shifts:</span>
               <strong>{stats.nightShifts}</strong>
             </div>
-            <div className="summary-item">
+            <div className="summary-item-mobile">
               <span>OT Sessions:</span>
               <strong>{stats.otSessions}</strong>
             </div>
           </div>
-        </div>
+        </section>
+      </main>
 
-        {/* Bottom Navigation */}
-        <nav className="bottom-nav">
-          <button 
-            className={`nav-item ${isActiveRoute('/admin') ? 'active' : ''}`}
-            onClick={() => safeNavigate('/admin')}
-          >
-            <span className="nav-icon">📊</span>
-            <span className="nav-text">Dashboard</span>
-          </button>
-          
-          <button 
-            className={`nav-item ${isActiveRoute('/admin/salary') ? 'active' : ''}`}
-            onClick={() => safeNavigate('/admin/salary')}
-          >
-            <span className="nav-icon">💰</span>
-            <span className="nav-text">Salary</span>
-          </button>
-          
-          <button 
-            className={`nav-item ${isActiveRoute('/admin/advances') ? 'active' : ''}`}
-            onClick={() => safeNavigate('/admin/advances')}
-          >
-            <span className="nav-icon">📋</span>
-            <span className="nav-text">Advances</span>
-          </button>
-          
-          <button 
-            className={`nav-item ${isActiveRoute('/admin/ot-approvals') ? 'active' : ''}`}
-            onClick={() => safeNavigate('/admin/ot-approvals')}
-          >
-            <span className="nav-icon">🕒</span>
-            <span className="nav-text">OT</span>
-          </button>
-          
-          {/* ADDED AVAILABILITY BUTTON */}
-          <button 
-            className={`nav-item ${isActiveRoute('/admin/availability') ? 'active' : ''}`}
-            onClick={() => safeNavigate('/admin/availability')}
-          >
-            <span className="nav-icon">📅</span>
-            <span className="nav-text">Availability</span>
-          </button>
-          
-          <button className="nav-item logout-item" onClick={onLogout}>
-            <span className="nav-icon">🚪</span>
-            <span className="nav-text">Logout</span>
-          </button>
-        </nav>
-      </div>
+      {/* Bottom Navigation */}
+      <nav className="mobile-bottom-nav">
+        <button 
+          className={`nav-item ${isActiveRoute('/admin') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin')}
+        >
+          <span className="nav-icon">📊</span>
+          <span className="nav-label">Dashboard</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/admin/salary') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin/salary')}
+        >
+          <span className="nav-icon">💰</span>
+          <span className="nav-label">Salary</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/admin/advances') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin/advances')}
+        >
+          <span className="nav-icon">📋</span>
+          <span className="nav-label">Advances</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/admin/ot-approvals') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin/ot-approvals')}
+        >
+          <span className="nav-icon">🕒</span>
+          <span className="nav-label">OT</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/admin/availability') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin/availability')}
+        >
+          <span className="nav-icon">📅</span>
+          <span className="nav-label">Availability</span>
+        </button>
+        
+        <button className="nav-item logout-item" onClick={onLogout}>
+          <span className="nav-icon">🚪</span>
+          <span className="nav-label">Logout</span>
+        </button>
+      </nav>
     </div>
   );
 }

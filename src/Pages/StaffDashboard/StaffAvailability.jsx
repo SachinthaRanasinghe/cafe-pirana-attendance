@@ -135,10 +135,9 @@ export default function StaffAvailability({ staffData, onLogout }) {
       
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-      showNotification("Availability saved successfully!", "success");
     } catch (error) {
       console.error("Error saving availability:", error);
-      showNotification("Error saving availability: " + error.message, "error");
+      alert("Error saving availability: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -155,17 +154,6 @@ export default function StaffAvailability({ staffData, onLogout }) {
     });
     
     setAvailabilities(newAvailabilities);
-    showNotification(`Copied ${sourceDay} schedule to all other days`, "info");
-  };
-
-  const showNotification = (msg, type = "info") => {
-    const styles = {
-      success: "background: #4CAF50; color: white; padding: 12px; border-radius: 4px;",
-      error: "background: #f44336; color: white; padding: 12px; border-radius: 4px;",
-      info: "background: #2196F3; color: white; padding: 12px; border-radius: 4px;"
-    };
-    console.log(`%c${msg}`, styles[type] || styles.info);
-    alert(msg);
   };
 
   const isActiveRoute = (path) => location.pathname.includes(path);
@@ -197,99 +185,56 @@ export default function StaffAvailability({ staffData, onLogout }) {
 
   return (
     <div className="staff-availability">
-      {/* Navigation Header */}
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <div className="brand-icon">🏪</div>
-          <div className="brand-text">
-            <h2>Cafe Piranha</h2>
-            <span>Staff Portal</span>
+      {/* Mobile Header */}
+      <header className="mobile-header">
+        <div className="header-content">
+          <div className="header-brand">
+            <div className="brand-icon">🏪</div>
+            <div className="brand-text">
+              <h1>Cafe Piranha</h1>
+              <span>Availability</span>
+            </div>
+          </div>
+          
+          <div className="header-user">
+            <div className="user-avatar">
+              {staffName.charAt(0).toUpperCase()}
+            </div>
           </div>
         </div>
         
-        <div className="nav-user">
-          <div className="user-avatar">
-            {staffName.charAt(0).toUpperCase()}
-          </div>
-          <div className="user-info">
-            <span className="user-name">{staffName}</span>
-            <span className="user-id">ID: {staffId}</span>
-          </div>
+        <div className="user-info-mobile">
+          <span className="user-name">{staffName}</span>
+          <span className="user-id">ID: {staffId}</span>
         </div>
-      </nav>
+      </header>
 
-      {/* Main Dashboard Content */}
-      <div className="dashboard-container">
-        {/* Sidebar Navigation */}
-        <aside className="sidebar">
-          <nav className="sidebar-nav">
-            <button 
-              className={`nav-item ${isActiveRoute('/staff') ? 'active' : ''}`}
-              onClick={() => safeNavigate('/staff')}
-            >
-              <span className="nav-icon">📊</span>
-              <span className="nav-text">Dashboard</span>
-            </button>
-            
-            <button 
-              className={`nav-item ${isActiveRoute('/salary') ? 'active' : ''}`}
-              onClick={() => safeNavigate('/staff/salary')}
-            >
-              <span className="nav-icon">💰</span>
-              <span className="nav-text">Salary</span>
-            </button>
-            
-            <button 
-              className={`nav-item ${isActiveRoute('/advance') ? 'active' : ''}`}
-              onClick={() => safeNavigate('/staff/advance')}
-            >
-              <span className="nav-icon">📋</span>
-              <span className="nav-text">Request Advance</span>
-            </button>
-
-            <button 
-              className={`nav-item ${isActiveRoute('/availability') ? 'active' : ''}`}
-              onClick={() => safeNavigate('/staff/availability')}
-            >
-              <span className="nav-icon">📅</span>
-              <span className="nav-text">Availability</span>
-            </button>
-            
-            <div className="nav-divider"></div>
-            
-            <button className="nav-item logout-item" onClick={handleLogout}>
-              <span className="nav-icon">🚪</span>
-              <span className="nav-text">Logout</span>
-            </button>
-          </nav>
-        </aside>
-
-        {/* Main Content Area */}
-        <main className="dashboard-main">
-          {/* Welcome Header */}
-          <div className="welcome-header">
-            <div className="welcome-text">
-              <h1>Weekly Availability</h1>
-              <p>Set your available working hours for each day</p>
-            </div>
-            <div className="date-display">
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </div>
+      {/* Main Content */}
+      <main className="mobile-main">
+        {/* Welcome Section */}
+        <section className="welcome-section">
+          <div className="welcome-content">
+            <h2>Weekly Availability</h2>
+            <p>Set your working hours for each day</p>
           </div>
+          <div className="date-display-mobile">
+            {new Date().toLocaleDateString('en-US', { 
+              weekday: 'short', 
+              month: 'short', 
+              day: 'numeric' 
+            })}
+          </div>
+        </section>
 
-          {/* Quick Actions */}
-          <div className="action-card">
-            <div className="action-header">
+        {/* Quick Actions */}
+        <section className="actions-section">
+          <div className="actions-card-mobile">
+            <div className="actions-header">
               <h3>Quick Actions</h3>
             </div>
-            <div className="action-buttons">
+            <div className="actions-grid">
               <button 
-                className="btn-outline"
+                className="btn-action-outline"
                 onClick={() => {
                   const newAvailabilities = { ...availabilities };
                   days.forEach(day => {
@@ -302,10 +247,10 @@ export default function StaffAvailability({ staffData, onLogout }) {
                 }}
               >
                 <span className="btn-icon">✅</span>
-                Available All Week
+                <span className="btn-text">Available All Week</span>
               </button>
               <button 
-                className="btn-outline"
+                className="btn-action-outline"
                 onClick={() => {
                   const newAvailabilities = { ...availabilities };
                   days.forEach(day => {
@@ -318,26 +263,31 @@ export default function StaffAvailability({ staffData, onLogout }) {
                 }}
               >
                 <span className="btn-icon">❌</span>
-                Unavailable All Week
+                <span className="btn-text">Unavailable All Week</span>
               </button>
               <button 
-                className="btn-primary"
+                className="btn-action-primary"
                 onClick={saveAvailabilities}
                 disabled={loading}
               >
                 <span className="btn-icon">💾</span>
-                {loading ? "Saving..." : "Save All Changes"}
+                <span className="btn-text">
+                  {loading ? "Saving..." : "Save All Changes"}
+                </span>
               </button>
             </div>
             {saved && (
-              <div className="save-indicator success">
-                ✅ Availability saved successfully!
+              <div className="save-indicator-mobile success">
+                <span className="save-icon">✅</span>
+                Availability saved successfully!
               </div>
             )}
           </div>
+        </section>
 
-          {/* Availability Grid */}
-          <div className="availability-grid">
+        {/* Availability Grid */}
+        <section className="availability-section">
+          <div className="availability-grid-mobile">
             {days.map(day => {
               const dayData = availabilities[day] || {
                 available: false,
@@ -347,52 +297,52 @@ export default function StaffAvailability({ staffData, onLogout }) {
               };
 
               return (
-                <div key={day} className={`day-card ${dayData.available ? 'available' : 'unavailable'}`}>
-                  <div className="day-header">
-                    <div className="day-title">
-                      <h3>{day}</h3>
-                      <label className="toggle-switch">
+                <div key={day} className={`day-card-mobile ${dayData.available ? 'available' : 'unavailable'}`}>
+                  <div className="day-header-mobile">
+                    <div className="day-title-mobile">
+                      <h3 className="day-name">{day}</h3>
+                      <label className="toggle-switch-mobile">
                         <input
                           type="checkbox"
                           checked={dayData.available}
                           onChange={(e) => handleAvailabilityChange(day, 'available', e.target.checked)}
                         />
-                        <span className="toggle-slider"></span>
+                        <span className="toggle-slider-mobile"></span>
                       </label>
                     </div>
                     <button 
-                      className="btn-sm btn-outline"
+                      className="btn-copy-mobile"
                       onClick={() => copyToAllDays(day)}
                     >
                       <span className="btn-icon">📋</span>
-                      Copy to All
+                      <span className="btn-text">Copy to All</span>
                     </button>
                   </div>
 
                   {dayData.available && (
-                    <div className="day-schedule">
+                    <div className="day-schedule-mobile">
                       {/* Working Hours */}
-                      <div className="time-section">
-                        <label className="section-label">Working Hours</label>
-                        <div className="time-inputs">
-                          <div className="time-input-group">
-                            <label>Start Time</label>
+                      <div className="time-section-mobile">
+                        <label className="section-label-mobile">Working Hours</label>
+                        <div className="time-inputs-mobile">
+                          <div className="time-input-group-mobile">
+                            <label className="time-label">Start Time</label>
                             <select
                               value={dayData.startTime}
                               onChange={(e) => handleTimeChange(day, 'startTime', e.target.value)}
-                              className="time-select"
+                              className="time-select-mobile"
                             >
                               {timeSlots.map(time => (
                                 <option key={time} value={time}>{time}</option>
                               ))}
                             </select>
                           </div>
-                          <div className="time-input-group">
-                            <label>End Time</label>
+                          <div className="time-input-group-mobile">
+                            <label className="time-label">End Time</label>
                             <select
                               value={dayData.endTime}
                               onChange={(e) => handleTimeChange(day, 'endTime', e.target.value)}
-                              className="time-select"
+                              className="time-select-mobile"
                             >
                               {timeSlots.map(time => (
                                 <option key={time} value={time}>{time}</option>
@@ -403,42 +353,42 @@ export default function StaffAvailability({ staffData, onLogout }) {
                       </div>
 
                       {/* Breaks */}
-                      <div className="breaks-section">
-                        <div className="breaks-header">
-                          <label className="section-label">Breaks</label>
+                      <div className="breaks-section-mobile">
+                        <div className="breaks-header-mobile">
+                          <label className="section-label-mobile">Breaks</label>
                           <button 
-                            className="btn-sm btn-outline"
+                            className="btn-add-break-mobile"
                             onClick={() => addBreak(day)}
                           >
                             <span className="btn-icon">➕</span>
-                            Add Break
+                            <span className="btn-text">Add Break</span>
                           </button>
                         </div>
                         
                         {dayData.breaks?.map((breakItem, index) => (
-                          <div key={index} className="break-item">
-                            <div className="break-inputs">
+                          <div key={index} className="break-item-mobile">
+                            <div className="break-inputs-mobile">
                               <select
                                 value={breakItem.start}
                                 onChange={(e) => updateBreakTime(day, index, 'start', e.target.value)}
-                                className="time-select"
+                                className="time-select-mobile"
                               >
                                 {timeSlots.map(time => (
                                   <option key={time} value={time}>{time}</option>
                                 ))}
                               </select>
-                              <span className="break-separator">to</span>
+                              <span className="break-separator-mobile">to</span>
                               <select
                                 value={breakItem.end}
                                 onChange={(e) => updateBreakTime(day, index, 'end', e.target.value)}
-                                className="time-select"
+                                className="time-select-mobile"
                               >
                                 {timeSlots.map(time => (
                                   <option key={time} value={time}>{time}</option>
                                 ))}
                               </select>
                               <button 
-                                className="btn-sm btn-danger"
+                                className="btn-remove-break-mobile"
                                 onClick={() => removeBreak(day, index)}
                               >
                                 <span className="btn-icon">🗑️</span>
@@ -451,43 +401,86 @@ export default function StaffAvailability({ staffData, onLogout }) {
                   )}
 
                   {!dayData.available && (
-                    <div className="unavailable-message">
+                    <div className="unavailable-message-mobile">
                       <span className="unavailable-icon">❌</span>
-                      Not available on {day}
+                      <span className="unavailable-text">Not available on {day}</span>
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
+        </section>
 
-          {/* Summary Card */}
-          <div className="summary-card">
-            <div className="summary-header">
+        {/* Summary Card */}
+        <section className="summary-section">
+          <div className="summary-card-mobile">
+            <div className="summary-header-mobile">
               <h3>Availability Summary</h3>
             </div>
-            <div className="summary-content">
-              <div className="summary-stats">
-                <div className="stat">
+            <div className="summary-content-mobile">
+              <div className="summary-stats-mobile">
+                <div className="stat-item-mobile">
                   <span className="stat-label">Available Days:</span>
                   <span className="stat-value">
                     {days.filter(day => availabilities[day]?.available).length} / 7
                   </span>
                 </div>
-                <div className="stat">
+                <div className="stat-item-mobile">
                   <span className="stat-label">Last Updated:</span>
                   <span className="stat-value">
                     {new Date().toLocaleDateString()}
                   </span>
                 </div>
               </div>
-              <div className="summary-note">
-                <p>💡 Your availability helps management schedule shifts effectively. Please keep this updated.</p>
+              <div className="summary-note-mobile">
+                <span className="note-icon">💡</span>
+                <p>Your availability helps management schedule shifts effectively. Please keep this updated.</p>
               </div>
             </div>
           </div>
-        </main>
-      </div>
+        </section>
+      </main>
+
+      {/* Bottom Navigation */}
+      <nav className="mobile-bottom-nav">
+        <button 
+          className={`nav-item ${isActiveRoute('/staff') && !isActiveRoute('/staff/salary') && !isActiveRoute('/staff/advance') && !isActiveRoute('/staff/availability') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/staff')}
+        >
+          <span className="nav-icon">📊</span>
+          <span className="nav-label">Dashboard</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/staff/salary') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/staff/salary')}
+        >
+          <span className="nav-icon">💰</span>
+          <span className="nav-label">Salary</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/staff/advance') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/staff/advance')}
+        >
+          <span className="nav-icon">📋</span>
+          <span className="nav-label">Advance</span>
+        </button>
+        
+        <button 
+          className={`nav-item ${isActiveRoute('/staff/availability') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/staff/availability')}
+        >
+          <span className="nav-icon">📅</span>
+          <span className="nav-label">Availability</span>
+        </button>
+
+        <button className="nav-item logout-item" onClick={handleLogout}>
+          <span className="nav-icon">🚪</span>
+          <span className="nav-label">Logout</span>
+        </button>
+      </nav>
     </div>
   );
 }
