@@ -1,30 +1,16 @@
+// src/Pages/Login.jsx
 import { useState } from "react";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import "./Login.css";
-import StaffDashboard from "./StaffDashboard.jsx";
-import AdminDashboard from "./AdminDashboard.jsx";
-import AdvancedStaffDashboard from "./AdvancedStaffDashboard.jsx";
 
-export default function Login() {
-  const [isAdminLogin, setIsAdminLogin] = useState(false);
+export default function Login({ onStaffLogin, onAdminLogin }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [staffName, setStaffName] = useState("");
   const [staffEmail, setStaffEmail] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
-  const [adminUsername, setAdminUsername] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [userType, setUserType] = useState(""); // "staff" or "admin"
-  const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Admin credentials
-  const ADMIN_CREDENTIALS = {
-    username: "admin",
-    password: "cafepirana2024"
-  };
 
   // Staff Registration
   const handleStaffRegister = async (e) => {
@@ -43,24 +29,26 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, staffEmail, staffPassword);
       const user = userCredential.user;
 
-      // Create staff profile in Firestore
+      // Create staff profile - USE THE SAME PROPERTY NAMES CONSISTENTLY
       const staffProfile = {
-        staffName: staffName.trim(),
-        staffEmail: staffEmail.trim(),
+        staffName: staffName.trim(), // Use staffName consistently
+        staffEmail: staffEmail.trim(), // Use staffEmail consistently  
+        staffId: `CP${Date.now().toString().slice(-4)}`, // Use staffId consistently
         createdAt: new Date().toISOString(),
-        staffId: `CP${staffName.replace(/\s+/g, '').toUpperCase().substr(0, 3)}`,
         totalHours: 0,
-        sessionsCount: 0
+        sessionsCount: 0,
+        uid: user.uid
       };
 
+      console.log("Creating staff profile:", staffProfile);
       await setDoc(doc(db, 'staff', user.uid), staffProfile);
 
       alert("✅ Account created successfully! You can now login.");
       setIsRegistering(false);
+      setStaffName("");
       setStaffEmail("");
       setStaffPassword("");
       
@@ -90,7 +78,6 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // Sign in with Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, staffEmail, staffPassword);
       const user = userCredential.user;
 
@@ -99,12 +86,25 @@ export default function Login() {
       
       if (staffDoc.exists()) {
         const staffData = staffDoc.data();
-        setUserData({
+        console.log("Staff data from Firestore:", staffData);
+        
+        // Use whatever properties exist in Firestore
+        const staffProfile = {
           uid: user.uid,
-          ...staffData
-        });
-        setUserType("staff");
-        setLoggedIn(true);
+          staffName: staffData.staffName || staffData.name, // Try both
+          staffId: staffData.staffId || staffData.id,       // Try both
+          staffEmail: staffData.staffEmail || staffData.email // Try both
+        };
+
+        console.log("Final staff profile:", staffProfile);
+        
+        // Call the callback to notify App.jsx
+        if (onStaffLogin && typeof onStaffLogin === 'function') {
+          onStaffLogin(staffProfile);
+        } else {
+          console.error('onStaffLogin is not a function:', onStaffLogin);
+          alert('Login system error. Please try again.');
+        }
       } else {
         alert("❌ Staff profile not found. Please contact administrator.");
         await auth.signOut();
@@ -127,52 +127,15 @@ export default function Login() {
     }
   };
 
-  const handleAdminLogin = async (e) => {
-    e.preventDefault();
-    
-    if (!adminUsername || !adminPassword) {
-      alert("Please enter both username and password.");
-      return;
+  // Add Admin Login handler
+  const handleAdminLoginClick = () => {
+    if (onAdminLogin && typeof onAdminLogin === 'function') {
+      onAdminLogin();
+    } else {
+      console.error('onAdminLogin is not a function:', onAdminLogin);
+      alert('Admin login system error. Please try again.');
     }
-
-    setIsLoading(true);
-    
-    setTimeout(() => {
-      if (adminUsername === ADMIN_CREDENTIALS.username && 
-          adminPassword === ADMIN_CREDENTIALS.password) {
-        setUserType("admin");
-        setLoggedIn(true);
-      } else {
-        alert("Invalid admin credentials!");
-      }
-      setIsLoading(false);
-    }, 1000);
   };
-
-  const handleLogout = () => {
-    if (userType === "staff") {
-      auth.signOut();
-    }
-    setLoggedIn(false);
-    setUserType("");
-    setUserData(null);
-    setStaffName("");
-    setStaffEmail("");
-    setStaffPassword("");
-    setAdminUsername("");
-    setAdminPassword("");
-    setIsAdminLogin(false);
-    setIsRegistering(false);
-  };
-
-  // Redirect to appropriate dashboard after login
-  if (loggedIn && userType === "staff" && userData) {
-    return <StaffDashboard staffData={userData} onLogout={handleLogout} />;
-  }
-
-  if (loggedIn && userType === "admin") {
-    return <AdminDashboard onLogout={handleLogout} />;
-  }
 
   return (
     <div className="app">
@@ -184,166 +147,115 @@ export default function Login() {
             <div className="brand-text">
               <h1 className="cafe-name">Cafe Piranha</h1>
               <p className="cafe-subtitle">
-                {isAdminLogin ? "Admin Portal" : isRegistering ? "Staff Registration" : "Staff Portal"}
+                {isRegistering ? "Staff Registration" : "Staff Portal"}
               </p>
             </div>
           </div>
           <p className="login-subtitle">
-            {isAdminLogin ? "Administrator Access" : 
-             isRegistering ? "Create Your Staff Account" : "Working Time & Attendance System"}
+            {isRegistering ? "Create Your Staff Account" : "Working Time & Attendance System"}
           </p>
         </div>
 
         {/* Staff Login/Register Form */}
-        {!isAdminLogin ? (
-          <form onSubmit={isRegistering ? handleStaffRegister : handleStaffLogin} className="login-form">
-            {isRegistering && (
-              <div className="input-group">
-                <label htmlFor="staffName" className="input-label">
-                  Full Name
-                </label>
-                <input
-                  id="staffName"
-                  type="text"
-                  placeholder="Enter your full name"
-                  value={staffName}
-                  onChange={(e) => setStaffName(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-            )}
-
+        <form onSubmit={isRegistering ? handleStaffRegister : handleStaffLogin} className="login-form">
+          {isRegistering && (
             <div className="input-group">
-              <label htmlFor="staffEmail" className="input-label">
-                Email Address
+              <label htmlFor="staffName" className="input-label">
+                Full Name
               </label>
               <input
-                id="staffEmail"
-                type="email"
-                placeholder="Enter your email"
-                value={staffEmail}
-                onChange={(e) => setStaffEmail(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-
-            <div className="input-group">
-              <label htmlFor="staffPassword" className="input-label">
-                Password
-              </label>
-              <input
-                id="staffPassword"
-                type="password"
-                placeholder={isRegistering ? "Create a password (min. 6 characters)" : "Enter your password"}
-                value={staffPassword}
-                onChange={(e) => setStaffPassword(e.target.value)}
-                className="form-input"
-                required
-                minLength={6}
-              />
-            </div>
-
-            <button 
-              type="submit" 
-              className={`login-btn ${isLoading ? 'loading' : ''}`}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <div className="spinner"></div>
-                  {isRegistering ? 'Creating Account...' : 'Signing In...'}
-                </>
-              ) : (
-                isRegistering ? 'Create Account' : 'Sign In'
-              )}
-            </button>
-
-            <div className="form-switch">
-              <button 
-                type="button"
-                className="switch-btn"
-                onClick={() => setIsRegistering(!isRegistering)}
-              >
-                {isRegistering 
-                  ? '← Already have an account? Sign In' 
-                  : 'Need an account? Register Here'
-                }
-              </button>
-              
-              
-            </div>
-          </form>
-        ) : (
-          /* Admin Login Form */
-          <form onSubmit={handleAdminLogin} className="login-form">
-            <div className="input-group">
-              <label htmlFor="adminUsername" className="input-label">
-                Admin Username
-              </label>
-              <input
-                id="adminUsername"
+                id="staffName"
                 type="text"
-                placeholder="Enter admin username"
-                value={adminUsername}
-                onChange={(e) => setAdminUsername(e.target.value)}
+                placeholder="Enter your full name"
+                value={staffName}
+                onChange={(e) => setStaffName(e.target.value)}
                 className="form-input"
                 required
               />
             </div>
+          )}
 
-            <div className="input-group">
-              <label htmlFor="adminPassword" className="input-label">
-                Admin Password
-              </label>
-              <input
-                id="adminPassword"
-                type="password"
-                placeholder="Enter admin password"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
+          <div className="input-group">
+            <label htmlFor="staffEmail" className="input-label">
+              Email Address
+            </label>
+            <input
+              id="staffEmail"
+              type="email"
+              placeholder="Enter your email"
+              value={staffEmail}
+              onChange={(e) => setStaffEmail(e.target.value)}
+              className="form-input"
+              required
+            />
+          </div>
 
+          <div className="input-group">
+            <label htmlFor="staffPassword" className="input-label">
+              Password
+            </label>
+            <input
+              id="staffPassword"
+              type="password"
+              placeholder={isRegistering ? "Create a password (min. 6 characters)" : "Enter your password"}
+              value={staffPassword}
+              onChange={(e) => setStaffPassword(e.target.value)}
+              className="form-input"
+              required
+              minLength={6}
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            className={`login-btn ${isLoading ? 'loading' : ''}`}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <div className="spinner"></div>
+                {isRegistering ? 'Creating Account...' : 'Signing In...'}
+              </>
+            ) : (
+              isRegistering ? 'Create Account' : 'Sign In'
+            )}
+          </button>
+
+          <div className="form-switch">
             <button 
-              type="submit" 
-              className={`login-btn ${isLoading ? 'loading' : ''}`}
-              disabled={isLoading}
+              type="button"
+              className="switch-btn"
+              onClick={() => setIsRegistering(!isRegistering)}
             >
-              {isLoading ? (
-                <>
-                  <div className="spinner"></div>
-                  Verifying...
-                </>
-              ) : (
-                'Access Admin Panel'
-              )}
+              {isRegistering 
+                ? '← Already have an account? Sign In' 
+                : 'Need an account? Register Here'
+              }
             </button>
+          </div>
+        </form>
 
-            <div className="form-switch">
-              <button 
-                type="button"
-                className="back-btn"
-                onClick={() => setIsAdminLogin(false)}
-              >
-                ← Back to Staff Portal
-              </button>
-            </div>
-          </form>
-        )}
+        {/* Admin Access Section */}
+        <div className="admin-section">
+          <div className="divider">
+            <span>or</span>
+          </div>
+          <button 
+            className="admin-login-btn"
+            onClick={handleAdminLoginClick}
+          >
+            <span className="admin-icon">⚙️</span>
+            Administrator Access
+          </button>
+        </div>
 
         {/* Security Notice */}
         <div className="security-notice">
           <div className="security-icon">🔒</div>
           <p>
-            {isAdminLogin 
-              ? "Administrative access only. All activities are logged."
-              : isRegistering 
-                ? "Your account data is securely stored and encrypted."
-                : "Secure staff access only. Unauthorized access prohibited."
+            {isRegistering 
+              ? "Your account data is securely stored and encrypted."
+              : "Secure staff access only. Unauthorized access prohibited."
             }
           </p>
         </div>

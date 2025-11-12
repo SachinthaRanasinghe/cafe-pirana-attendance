@@ -1,0 +1,653 @@
+/* ============================
+   StaffAvailability.css
+   Mobile-First Professional Styling
+============================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Inter", "Segoe UI", Tahoma, sans-serif;
+  }
+  
+  .staff-availability {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #f1f5f9;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  /* ----------------------------
+     Mobile Navigation
+  ----------------------------- */
+  .mobile-nav {
+    display: flex;
+    justify-content: space-around;
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 12px 0;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    margin-bottom: 8px;
+  }
+  
+  .nav-btn {
+    background: transparent;
+    color: #f8fafc;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 10px 12px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .nav-btn:hover {
+    background: #334155;
+  }
+  
+  .nav-btn.active {
+    background: #38bdf8;
+    color: #0f172a;
+  }
+  
+  .nav-icon {
+    font-size: 1.1rem;
+  }
+  
+  /* ----------------------------
+     Header Section
+  ----------------------------- */
+  .dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    margin-bottom: 8px;
+  }
+  
+  .dashboard-header h1 {
+    font-size: 1.4rem;
+    color: #38bdf8;
+    font-weight: 700;
+  }
+  
+  .staff-details p {
+    color: #cbd5e1;
+    font-size: 0.85rem;
+  }
+  
+  .logout-btn {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    font-size: 0.9rem;
+  }
+  
+  .logout-btn:hover {
+    background: #dc2626;
+  }
+  
+  /* ----------------------------
+     Quick Actions Card
+  ----------------------------- */
+  .action-card {
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    margin-bottom: 8px;
+  }
+  
+  .action-header h3 {
+    color: #38bdf8;
+    margin-bottom: 16px;
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+  
+  .action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .btn-primary, .btn-outline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
+    justify-content: center;
+  }
+  
+  .btn-primary {
+    background: #22c55e;
+    color: white;
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    background: #16a34a;
+    transform: translateY(-2px);
+  }
+  
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .btn-outline {
+    background: transparent;
+    color: #38bdf8;
+    border: 2px solid #38bdf8;
+  }
+  
+  .btn-outline:hover {
+    background: rgba(56, 189, 248, 0.1);
+    transform: translateY(-2px);
+  }
+  
+  .btn-icon {
+    font-size: 1.1rem;
+  }
+  
+  .save-indicator {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 500;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+  
+  .save-indicator.success {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+  
+  /* ----------------------------
+     Availability Grid
+  ----------------------------- */
+  .availability-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .day-card {
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+  }
+  
+  .day-card.available {
+    border-left-color: #22c55e;
+  }
+  
+  .day-card.unavailable {
+    border-left-color: #ef4444;
+    opacity: 0.8;
+  }
+  
+  .day-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  }
+  
+  .day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .day-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .day-title h3 {
+    color: #f8fafc;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+  }
+  
+  /* Toggle Switch */
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 22px;
+  }
+  
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #475569;
+    border-radius: 22px;
+    transition: 0.3s;
+  }
+  
+  .toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.3s;
+  }
+  
+  input:checked + .toggle-slider {
+    background: #22c55e;
+  }
+  
+  input:checked + .toggle-slider:before {
+    transform: translateX(22px);
+  }
+  
+  .btn-sm {
+    background: transparent;
+    color: #38bdf8;
+    border: 1.5px solid #38bdf8;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .btn-sm:hover {
+    background: rgba(56, 189, 248, 0.1);
+  }
+  
+  /* Day Schedule */
+  .day-schedule {
+    animation: slideDown 0.3s ease;
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .time-section, .breaks-section {
+    margin-bottom: 16px;
+  }
+  
+  .section-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #e2e8f0;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  
+  .time-inputs {
+    display: flex;
+    gap: 12px;
+    align-items: end;
+  }
+  
+  .time-input-group {
+    flex: 1;
+  }
+  
+  .time-input-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  
+  .time-select {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #334155;
+    border-radius: 8px;
+    background: #0f172a;
+    color: #f8fafc;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  
+  .time-select:focus {
+    outline: none;
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+  }
+  
+  /* Breaks Section */
+  .breaks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .break-item {
+    background: rgba(56, 189, 248, 0.05);
+    border: 1px solid rgba(56, 189, 248, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  
+  .break-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .break-separator {
+    color: #94a3b8;
+    font-weight: 500;
+    font-size: 0.85rem;
+  }
+  
+  .btn-danger {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
+  }
+  
+  .btn-danger:hover {
+    background: #dc2626;
+    transform: scale(1.05);
+  }
+  
+  /* Unavailable Message */
+  .unavailable-message {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 12px;
+    text-align: center;
+    color: #94a3b8;
+    font-weight: 500;
+    justify-content: center;
+    font-size: 0.9rem;
+  }
+  
+  .unavailable-icon {
+    font-size: 1.3rem;
+  }
+  
+  /* ----------------------------
+     Summary Card
+  ----------------------------- */
+  .summary-card {
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    margin-bottom: 16px;
+  }
+  
+  .summary-header h3 {
+    color: #38bdf8;
+    margin-bottom: 16px;
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+  
+  .summary-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .summary-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  }
+  
+  .stat-label {
+    color: #e2e8f0;
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+  
+  .stat-value {
+    color: #f8fafc;
+    font-weight: 600;
+    background: rgba(56, 189, 248, 0.1);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+  }
+  
+  .summary-note {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  
+  .summary-note p {
+    margin: 0;
+    color: #fbbf24;
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  
+  /* ----------------------------
+     Error State
+  ----------------------------- */
+  .error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    color: white;
+    background: #1e293b;
+    border-radius: 16px;
+    margin: 20px;
+  }
+  
+  .error-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+  }
+  
+  .error-state h2 {
+    margin: 0 0 12px 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #f8fafc;
+  }
+  
+  .error-state p {
+    margin: 0;
+    font-size: 1rem;
+    color: #cbd5e1;
+    opacity: 0.8;
+  }
+  
+  /* ----------------------------
+     Responsive Design
+  ----------------------------- */
+  @media (min-width: 768px) {
+    .staff-availability {
+      padding: 20px;
+      gap: 20px;
+    }
+    
+    .action-buttons {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    
+    .btn-primary, .btn-outline {
+      flex: 1;
+      min-width: 160px;
+    }
+    
+    .availability-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    
+    .summary-content {
+      flex-direction: row;
+      align-items: start;
+    }
+    
+    .summary-stats {
+      flex: 1;
+    }
+    
+    .summary-note {
+      flex: 1;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .dashboard-header h1 {
+      font-size: 1.6rem;
+    }
+    
+    .availability-grid {
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    }
+  }
+  
+  /* ----------------------------
+     Loading States
+  ----------------------------- */
+  .loading {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: loading 1.5s infinite;
+  }
+  
+  @keyframes loading {
+    0% {
+      left: -100%;
+    }
+    100% {
+      left: 100%;
+    }
+  }
+  
+  /* ----------------------------
+     Utility Classes
+  ----------------------------- */
+  .text-center {
+    text-align: center;
+  }
+  
+  .mb-1 {
+    margin-bottom: 8px;
+  }
+  
+  .mb-2 {
+    margin-bottom: 16px;
+  }
+  
+  .hidden {
+    display: none;
+  }
+  
+  /* ----------------------------
+     Scrollbar Styling
+  ----------------------------- */
+  .staff-availability::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .staff-availability::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+  }
+  
+  .staff-availability::-webkit-scrollbar-thumb {
+    background: rgba(56, 189, 248, 0.5);
+    border-radius: 2px;
+  }
+  
+  .staff-availability::-webkit-scrollbar-thumb:hover {
+    background: rgba(56, 189, 248, 0.7);
+  }

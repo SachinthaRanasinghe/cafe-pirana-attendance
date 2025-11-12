@@ -1,0 +1,492 @@
+/* === Global Theme & Reset === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+.salary-view {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* === Top Navigation Bar === */
+.dashboard-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(30, 41, 59, 0.9);
+  padding: 15px 25px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  backdrop-filter: blur(12px);
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon {
+  font-size: 1.8rem;
+}
+
+.brand-text h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.brand-text span {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-avatar {
+  background: #2563eb;
+  color: #fff;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+}
+
+.user-name {
+  font-weight: 600;
+}
+
+.user-id {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+/* === Layout === */
+.dashboard-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* === Sidebar === */
+.sidebar {
+  width: 220px;
+  background: rgba(15, 23, 42, 0.95);
+  border-right: 1px solid rgba(148, 163, 184, 0.1);
+  padding: 25px 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nav-item {
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+.nav-item:hover {
+  background: rgba(51, 65, 85, 0.4);
+  color: #fff;
+}
+
+.nav-item.active {
+  background: #2563eb;
+  color: #fff;
+}
+
+.logout-item {
+  color: #f87171;
+}
+
+.logout-item:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.nav-divider {
+  margin: 12px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+/* === Main Content === */
+.dashboard-main {
+  flex: 1;
+  padding: 25px 30px;
+  overflow-y: auto;
+}
+
+/* === Header === */
+.welcome-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 25px;
+}
+
+.welcome-text h1 {
+  font-size: 1.6rem;
+  color: #f1f5f9;
+}
+
+.welcome-text p {
+  color: #94a3b8;
+}
+
+.date-display {
+  background: #1e293b;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+/* === Filter Card === */
+.filter-card {
+  background: rgba(30, 41, 59, 0.75);
+  border-radius: 14px;
+  padding: 18px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.current-month-badge {
+  background: #2563eb;
+  color: white;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.9rem;
+}
+
+.month-input {
+  background: #0f172a;
+  border: 1px solid #475569;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  outline: none;
+  font-size: 0.9rem;
+}
+
+.month-input:hover,
+.month-input:focus {
+  border-color: #2563eb;
+}
+
+/* === Stats Grid === */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.stat-card {
+  background: rgba(30, 41, 59, 0.75);
+  border-radius: 14px;
+  padding: 18px;
+  text-align: center;
+  transition: transform 0.25s ease;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+}
+
+.stat-icon {
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+}
+
+.stat-icon.primary {
+  color: #3b82f6;
+}
+
+.stat-icon.success {
+  color: #10b981;
+}
+
+.stat-icon.warning {
+  color: #f59e0b;
+}
+
+.stat-icon.accent {
+  color: #eab308;
+}
+
+.stat-content h3 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.stat-content p {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.stat-detail {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* Highlighted card */
+.stat-card.highlight {
+  border: 2px solid #3b82f6;
+  background: rgba(37, 99, 235, 0.15);
+}
+
+/* === History Cards === */
+.history-card {
+  background: rgba(30, 41, 59, 0.75);
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 25px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-header h2 {
+  font-size: 1.2rem;
+  color: #f8fafc;
+}
+
+.badge {
+  background: #2563eb;
+  color: white;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+/* === History Items === */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-item {
+  background: rgba(15, 23, 42, 0.7);
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-left: 3px solid transparent;
+  transition: all 0.25s ease;
+}
+
+.history-item:hover {
+  background: rgba(51, 65, 85, 0.45);
+}
+
+.history-item.approved {
+  border-left-color: #10b981;
+}
+
+.history-item.pending {
+  border-left-color: #f59e0b;
+}
+
+.history-item.rejected {
+  border-left-color: #ef4444;
+}
+
+.history-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.amount-primary {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #f8fafc;
+}
+
+.amount-detail {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.status-badge {
+  font-size: 0.85rem;
+  padding: 4px 10px;
+  border-radius: 9999px;
+}
+
+.status-badge.approved {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.status-badge.pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.status-badge.rejected {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.history-details {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rejection-reason {
+  color: #f87171;
+  font-size: 0.85rem;
+}
+
+/* === Summary Section === */
+.summary-card {
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.summary-period {
+  background: #1e3a8a;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+.summary-item.positive {
+  color: #10b981;
+}
+
+.summary-item.negative {
+  color: #ef4444;
+}
+
+.summary-divider {
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  margin: 6px 0;
+}
+
+.summary-item.total {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #f8fafc;
+}
+
+/* === Empty & Error States === */
+.empty-state,
+.warning-card,
+.error-state {
+  text-align: center;
+  padding: 40px 0;
+  color: #94a3b8;
+}
+
+.empty-icon,
+.error-icon,
+.warning-icon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.warning-card {
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+/* === Responsive === */
+@media (max-width: 900px) {
+  .dashboard-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 10px;
+    border-right: none;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .dashboard-main {
+    padding: 20px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}

@@ -2,9 +2,8 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
-import { getAuth } from 'firebase/auth'; // ✅ Add this
+import { getAuth } from 'firebase/auth';
 
-// Your Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBrOI8XqyYzWgE-sKMEjJMdeGtoKz7Pt2o",
   authDomain: "cafe-pirana-attendance.firebaseapp.com",
@@ -15,10 +14,7 @@ const firebaseConfig = {
   measurementId: "G-QQB2PXFPWK"
 };
 
-// ✅ Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// ✅ Initialize Services
 export const db = getFirestore(app);
-export const auth = getAuth(app); // ✅ Export Auth
+export const auth = getAuth(app);
 export const analytics = getAnalytics(app);
