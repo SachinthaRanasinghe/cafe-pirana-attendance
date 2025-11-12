@@ -41,8 +41,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
   // Helper functions for shift-based tracking
   const getShiftDate = (timestamp) => {
     const date = new Date(timestamp);
-    // Consider shifts starting after 6 PM as part of the next day's schedule
-    if (date.getHours() >= 18) { // 6 PM
+    if (date.getHours() >= 18) {
       date.setDate(date.getDate() + 1);
     }
     return date.toDateString();
@@ -50,10 +49,10 @@ export default function StaffDashboard({ staffData, onLogout }) {
 
   const getShiftMonth = (timestamp) => {
     const date = new Date(timestamp);
-    if (date.getHours() >= 18) { // 6 PM
+    if (date.getHours() >= 18) {
       date.setDate(date.getDate() + 1);
     }
-    return date.toISOString().substring(0, 7); // YYYY-MM
+    return date.toISOString().substring(0, 7);
   };
 
   // Helper functions for distance calculation
@@ -68,7 +67,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
         Math.cos(toRad(lat2)) *
         Math.sin(dLon / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // meters
+    return R * c;
   };
 
   // === Location Verification Function ===
@@ -126,27 +125,25 @@ export default function StaffDashboard({ staffData, onLogout }) {
     });
   };
 
-  // === Calculate OT Hours with shift support - FIXED VERSION ===
+  // === Calculate OT Hours ===
   const calculateShiftOTHours = (clockIn, clockOut) => {
     try {
       const clockInTime = new Date(clockIn);
       const clockOutTime = new Date(clockOut);
       
-      // Ensure valid dates
       if (isNaN(clockInTime.getTime()) || isNaN(clockOutTime.getTime())) {
         throw new Error("Invalid date values");
       }
 
       const hoursWorked = (clockOutTime - clockInTime) / (1000 * 60 * 60);
       
-      // Ensure hoursWorked is a valid number
       if (isNaN(hoursWorked) || !isFinite(hoursWorked)) {
         throw new Error("Invalid hours calculation");
       }
 
-      const regularHours = Math.min(Math.max(0, hoursWorked), 12); // Ensure between 0-12
+      const regularHours = Math.min(Math.max(0, hoursWorked), 12);
       const otHours = Math.max(hoursWorked - 12, 0);
-      const otAmount = otHours * 200; // 200 Rs per OT hour
+      const otAmount = otHours * 200;
       
       return {
         hoursWorked,
@@ -154,11 +151,10 @@ export default function StaffDashboard({ staffData, onLogout }) {
         otHours,
         otAmount,
         hasOT: otHours > 0,
-        isNightShift: clockInTime.getHours() >= 18 // 6 PM or later
+        isNightShift: clockInTime.getHours() >= 18
       };
     } catch (error) {
       console.error("Error calculating OT hours:", error);
-      // Return safe fallback values
       return {
         hoursWorked: 0,
         regularHours: 0,
@@ -170,11 +166,8 @@ export default function StaffDashboard({ staffData, onLogout }) {
     }
   };
 
-  // === Real-time Firestore listener for this staff with shift-based tracking ===
+  // === Real-time Firestore listener ===
   useEffect(() => {
-    console.log("Setting up Firestore listener for:", staffName, "UID:", uid);
-
-    // Get sessions from yesterday 6 PM to today 6 PM
     const now = new Date();
     const startOfShiftPeriod = new Date(now);
     startOfShiftPeriod.setHours(18, 0, 0, 0);
@@ -199,7 +192,6 @@ export default function StaffDashboard({ staffData, onLogout }) {
         snapshot.forEach((doc) => {
           const data = { id: doc.id, ...doc.data() };
           
-          // Only include sessions within our shift period
           if (new Date(data.clockIn) >= startOfShiftPeriod) {
             sessions.push(data);
             if (data.clockOut && data.duration) {
@@ -211,7 +203,6 @@ export default function StaffDashboard({ staffData, onLogout }) {
         setTodaySessions(sessions);
         setTotalHoursToday(totalHours);
 
-        // Check for active session
         const activeSession = sessions.find((s) => !s.clockOut);
         if (activeSession) {
           setIsClockedIn(true);
@@ -230,7 +221,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
     return () => unsubscribe();
   }, [uid, staffName]);
 
-  // === Clock In with Location Verification and Shift Tracking ===
+  // === Clock In ===
   const clockIn = async () => {
     setLoading(true);
     
@@ -251,8 +242,8 @@ export default function StaffDashboard({ staffData, onLogout }) {
         clockIn: clockInTime.toISOString(),
         clockOut: null,
         duration: 0,
-        date: new Date().toDateString(), // Keep original date for reference
-        shiftDate: getShiftDate(clockInTime), // Use shift-based date
+        date: new Date().toDateString(),
+        shiftDate: getShiftDate(clockInTime),
         status: "active",
         timestamp: new Date().toISOString(),
         location: {
@@ -265,9 +256,9 @@ export default function StaffDashboard({ staffData, onLogout }) {
         otHours: 0,
         otAmount: 0,
         otStatus: "none",
-        month: new Date().toISOString().substring(0, 7), // Original month
-        shiftMonth: getShiftMonth(clockInTime), // Shift-based month for salary
-        isNightShift: clockInTime.getHours() >= 18 // Flag for night shifts
+        month: new Date().toISOString().substring(0, 7),
+        shiftMonth: getShiftMonth(clockInTime),
+        isNightShift: clockInTime.getHours() >= 18
       };
 
       const docRef = await addDoc(collection(db, "sessions"), session);
@@ -283,7 +274,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
     }
   };
 
-  // === Clock Out with Location Verification and OT Calculation - FIXED VERSION ===
+  // === Clock Out ===
   const clockOut = async () => {
     if (!currentSession) return;
     setLoading(true);
@@ -303,7 +294,6 @@ export default function StaffDashboard({ staffData, onLogout }) {
 
       const otCalculation = calculateShiftOTHours(currentSession.clockIn, clockOutTime);
 
-      // Ensure all values are defined and have fallbacks
       const updateData = {
         clockOut: clockOutTime.toISOString(),
         duration: duration,
@@ -341,7 +331,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
     }
   };
 
-  // === Create OT Request with Shift Tracking - FIXED VERSION ===
+  // === Create OT Request ===
   const createOTRequest = async (otCalculation, sessionId) => {
     try {
       const clockInTime = new Date(currentSession.clockIn);
@@ -397,13 +387,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
 
   const showNotification = (msg, type = "info") => {
     // In a real app, you'd use a proper notification system
-    const styles = {
-      success: "background: #4CAF50; color: white; padding: 12px; border-radius: 4px;",
-      error: "background: #f44336; color: white; padding: 12px; border-radius: 4px;",
-      info: "background: #2196F3; color: white; padding: 12px; border-radius: 4px;"
-    };
-    console.log(`%c${msg}`, styles[type] || styles.info);
-    alert(msg); // Fallback
+    alert(msg);
   };
 
   const formatTime = (date) =>
@@ -432,227 +416,204 @@ export default function StaffDashboard({ staffData, onLogout }) {
 
   return (
     <div className="staff-dashboard">
-      {/* Navigation Header */}
-      <nav className="dashboard-nav">
-        <div className="nav-brand">
-          <div className="brand-icon">🏪</div>
-          <div className="brand-text">
-            <h2>Cafe Piranha</h2>
-            <span>Staff Portal</span>
+      {/* Mobile-Optimized Header */}
+      <header className="mobile-header">
+        <div className="header-content">
+          <div className="header-brand">
+            <div className="brand-icon">🏪</div>
+            <div className="brand-text">
+              <h1>Cafe Piranha</h1>
+              <span>Staff Portal</span>
+            </div>
+          </div>
+          
+          <div className="header-user">
+            <div className="user-avatar">
+              {staffName.charAt(0).toUpperCase()}
+            </div>
           </div>
         </div>
         
-        <div className="nav-user">
-          <div className="user-avatar">
-            {staffName.charAt(0).toUpperCase()}
-          </div>
-          <div className="user-info">
-            <span className="user-name">{staffName}</span>
-            <span className="user-id">ID: {staffId}</span>
-          </div>
+        <div className="user-info-mobile">
+          <span className="user-name">{staffName}</span>
+          <span className="user-id">ID: {staffId}</span>
         </div>
-      </nav>
+      </header>
 
-      {/* Main Dashboard Content */}
-      <div className="dashboard-container">
-        {/* Main Content Area */}
-        <main className="dashboard-main">
-          {/* Welcome Header */}
-          <div className="welcome-header">
-            <div className="welcome-text">
-              <h1>Welcome back, {staffName}!</h1>
-              <p>Here's your work summary for today</p>
-            </div>
-            <div className="date-display">
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </div>
+      {/* Main Content */}
+      <main className="mobile-main">
+        {/* Welcome Section */}
+        <section className="welcome-section">
+          <div className="welcome-content">
+            <h2>Welcome, {staffName.split(' ')[0]}!</h2>
+            <p>{new Date().toLocaleDateString('en-US', { 
+              weekday: 'short', 
+              month: 'short', 
+              day: 'numeric' 
+            })}</p>
           </div>
+        </section>
 
-          {/* Clock Section */}
-          <div className="clock-card">
-            <div className="clock-header">
-              <h2>Time Tracking</h2>
-              <div className={`status-badge ${isClockedIn ? 'active' : 'inactive'}`}>
+        {/* Clock Section - Mobile Optimized */}
+        <section className="clock-section">
+          <div className="clock-card-mobile">
+            <div className="clock-status">
+              <div className={`status-indicator ${isClockedIn ? 'active' : 'inactive'}`}>
                 <div className="status-dot"></div>
-                {isClockedIn ? 'Currently Clocked In' : 'Currently Clocked Out'}
+                <span>{isClockedIn ? 'Clocked In' : 'Clocked Out'}</span>
               </div>
             </div>
-            
-            <div className="clock-content">
-              {isClockedIn && currentSession && (
-                <div className="active-session">
-                  <div className="session-timer">
-                    <LiveTimer startTime={new Date(currentSession.clockIn)} />
-                  </div>
-                  <p>Started at {formatTime(currentSession.clockIn)}</p>
-                  {currentSession.isNightShift && (
-                    <div className="night-shift-badge">🌙 Night Shift</div>
-                  )}
-                </div>
-              )}
-              
-              <div className="clock-actions">
-                {!isClockedIn ? (
-                  <button 
-                    className="btn-primary clock-in-btn"
-                    onClick={clockIn}
-                    disabled={loading || checkingLocation}
-                  >
-                    <span className="btn-icon">🟢</span>
-                    {loading ? 'Processing...' : 'Clock In'}
-                  </button>
-                ) : (
-                  <button 
-                    className="btn-secondary clock-out-btn"
-                    onClick={clockOut}
-                    disabled={loading || checkingLocation}
-                  >
-                    <span className="btn-icon">🔴</span>
-                    {loading ? 'Processing...' : 'Clock Out'}
-                  </button>
-                )}
-                
+
+            {isClockedIn && currentSession && (
+              <div className="active-timer-section">
+                <LiveTimer startTime={new Date(currentSession.clockIn)} />
+                <p className="clock-in-time">
+                  Started at {formatTime(currentSession.clockIn)}
+                  {currentSession.isNightShift && " 🌙"}
+                </p>
+              </div>
+            )}
+
+            <div className="clock-actions-mobile">
+              {!isClockedIn ? (
                 <button 
-                  className="btn-outline location-btn"
-                  onClick={checkLocationManually}
-                  disabled={checkingLocation}
+                  className="btn-clock-in"
+                  onClick={clockIn}
+                  disabled={loading || checkingLocation}
                 >
-                  <span className="btn-icon">📍</span>
-                  {checkingLocation ? 'Checking Location...' : 'Verify Location'}
+                  <span className="btn-icon">🟢</span>
+                  <span className="btn-text">
+                    {loading ? 'Processing...' : 'Clock In'}
+                  </span>
                 </button>
-              </div>
-
-              {/* Location Status */}
-              {locationMessage && (
-                <div className={`location-status ${locationAllowed ? 'success' : locationAllowed === false ? 'error' : 'info'}`}>
-                  <div className="location-status-icon">
-                    {locationAllowed ? '✅' : locationAllowed === false ? '❌' : '📍'}
-                  </div>
-                  <span>{locationMessage}</span>
-                </div>
+              ) : (
+                <button 
+                  className="btn-clock-out"
+                  onClick={clockOut}
+                  disabled={loading || checkingLocation}
+                >
+                  <span className="btn-icon">🔴</span>
+                  <span className="btn-text">
+                    {loading ? 'Processing...' : 'Clock Out'}
+                  </span>
+                </button>
               )}
             </div>
-          </div>
 
-          {/* Stats Grid */}
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-icon primary">⏱️</div>
-              <div className="stat-content">
-                <h3>{totalHoursToday.toFixed(2)}h</h3>
-                <p>Total Hours Today</p>
-              </div>
-            </div>
-            
-            <div className="stat-card">
-              <div className="stat-icon secondary">📅</div>
-              <div className="stat-content">
-                <h3>{todaySessions.length}</h3>
-                <p>Today's Sessions</p>
-              </div>
-            </div>
-            
-            <div className="stat-card">
-              <div className="stat-icon accent">⚡</div>
-              <div className="stat-content">
-                <h3>
-                  {todaySessions.filter(s => s.otHours > 0).length}
-                </h3>
-                <p>OT Sessions</p>
-              </div>
-            </div>
+            {/* Location Check */}
+            <button 
+              className="btn-location-check"
+              onClick={checkLocationManually}
+              disabled={checkingLocation}
+            >
+              <span className="btn-icon">📍</span>
+              <span className="btn-text">
+                {checkingLocation ? 'Checking...' : 'Check Location'}
+              </span>
+            </button>
 
-            <div className="stat-card">
-              <div className="stat-icon warning">🌙</div>
-              <div className="stat-content">
-                <h3>
-                  {todaySessions.filter(s => s.isNightShift).length}
-                </h3>
-                <p>Night Shifts</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Sessions */}
-          <div className="sessions-card">
-            <div className="card-header">
-              <h2>Today's Sessions</h2>
-              <span className="badge">{todaySessions.length}</span>
-            </div>
-            
-            {todaySessions.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">🕒</div>
-                <h3>No sessions today</h3>
-                <p>Your work sessions will appear here after clocking in</p>
-              </div>
-            ) : (
-              <div className="sessions-list">
-                {todaySessions.map((session, index) => (
-                  <div key={session.id} className="session-item">
-                    <div className="session-number">#{todaySessions.length - index}</div>
-                    
-                    <div className="session-times">
-                      <div className="time-block">
-                        <span className="time-label">IN</span>
-                        <span className="time-value">
-                          {formatTime(session.clockIn)}
-                          {session.isNightShift && " 🌙"}
-                        </span>
-                      </div>
-                      
-                      {session.clockOut && (
-                        <>
-                          <div className="time-arrow">→</div>
-                          <div className="time-block">
-                            <span className="time-label">OUT</span>
-                            <span className="time-value">
-                              {formatTime(session.clockOut)}
-                              {session.crossMidnight && " ⏰"}
-                            </span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                    
-                    <div className="session-meta">
-                      <div className={`session-status ${session.status}`}>
-                        {session.status}
-                        {session.crossMidnight && " 🌙"}
-                      </div>
-                      <div className="session-duration">
-                        {session.clockOut 
-                          ? formatDuration(session.duration)
-                          : 'In Progress'
-                        }
-                      </div>
-                      {session.otHours > 0 && (
-                        <div className="ot-badge">
-                          +{session.otHours.toFixed(1)}h OT
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+            {/* Location Status */}
+            {locationMessage && (
+              <div className={`location-status-mobile ${locationAllowed ? 'success' : locationAllowed === false ? 'error' : 'info'}`}>
+                <span className="location-icon">
+                  {locationAllowed ? '✅' : locationAllowed === false ? '❌' : '📍'}
+                </span>
+                <span className="location-message">{locationMessage}</span>
               </div>
             )}
           </div>
-        </main>
-      </div>
+        </section>
 
-      {/* Bottom Navigation Bar - Fixed at bottom */}
-      <nav className="bottom-nav">
+        {/* Quick Stats */}
+        <section className="quick-stats">
+          <div className="stat-item">
+            <div className="stat-value">{totalHoursToday.toFixed(1)}h</div>
+            <div className="stat-label">Today</div>
+          </div>
+          <div className="stat-item">
+            <div className="stat-value">{todaySessions.length}</div>
+            <div className="stat-label">Sessions</div>
+          </div>
+          <div className="stat-item">
+            <div className="stat-value">
+              {todaySessions.filter(s => s.otHours > 0).length}
+            </div>
+            <div className="stat-label">OT</div>
+          </div>
+        </section>
+
+        {/* Recent Sessions */}
+        <section className="sessions-section">
+          <div className="section-header">
+            <h3>Today's Sessions</h3>
+            <span className="session-count">{todaySessions.length}</span>
+          </div>
+
+          {todaySessions.length === 0 ? (
+            <div className="empty-sessions">
+              <div className="empty-icon">🕒</div>
+              <p>No sessions today</p>
+            </div>
+          ) : (
+            <div className="sessions-list-mobile">
+              {todaySessions.map((session, index) => (
+                <div key={session.id} className="session-item-mobile">
+                  <div className="session-header">
+                    <span className="session-number">Session #{todaySessions.length - index}</span>
+                    <div className={`session-status ${session.status}`}>
+                      {session.status}
+                      {session.crossMidnight && " 🌙"}
+                    </div>
+                  </div>
+                  
+                  <div className="session-times-mobile">
+                    <div className="time-entry">
+                      <span className="time-label">IN:</span>
+                      <span className="time-value">
+                        {formatTime(session.clockIn)}
+                        {session.isNightShift && " 🌙"}
+                      </span>
+                    </div>
+                    
+                    {session.clockOut && (
+                      <div className="time-entry">
+                        <span className="time-label">OUT:</span>
+                        <span className="time-value">
+                          {formatTime(session.clockOut)}
+                          {session.crossMidnight && " ⏰"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="session-footer">
+                    <span className="session-duration">
+                      {session.clockOut 
+                        ? formatDuration(session.duration)
+                        : 'In Progress'
+                      }
+                    </span>
+                    {session.otHours > 0 && (
+                      <span className="ot-badge-mobile">
+                        +{session.otHours.toFixed(1)}h OT
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+
+      {/* Bottom Navigation - Mobile Optimized */}
+      <nav className="mobile-bottom-nav">
         <button 
           className={`nav-item ${isActiveRoute('/staff') ? 'active' : ''}`}
           onClick={() => safeNavigate('/staff')}
         >
           <span className="nav-icon">📊</span>
-          <span className="nav-text">Dashboard</span>
+          <span className="nav-label">Dashboard</span>
         </button>
         
         <button 
@@ -660,7 +621,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
           onClick={() => safeNavigate('/staff/salary')}
         >
           <span className="nav-icon">💰</span>
-          <span className="nav-text">Salary</span>
+          <span className="nav-label">Salary</span>
         </button>
         
         <button 
@@ -668,21 +629,15 @@ export default function StaffDashboard({ staffData, onLogout }) {
           onClick={() => safeNavigate('/staff/advance')}
         >
           <span className="nav-icon">📋</span>
-          <span className="nav-text">Advance</span>
+          <span className="nav-label">Advance</span>
         </button>
         
-        {/* ADDED AVAILABILITY BUTTON */}
         <button 
           className={`nav-item ${isActiveRoute('/staff/availability') ? 'active' : ''}`}
           onClick={() => safeNavigate('/staff/availability')}
         >
           <span className="nav-icon">📅</span>
-          <span className="nav-text">Availability</span>
-        </button>
-        
-        <button className="nav-item logout-item" onClick={handleLogout}>
-          <span className="nav-icon">🚪</span>
-          <span className="nav-text">Logout</span>
+          <span className="nav-label">Availability</span>
         </button>
       </nav>
     </div>
@@ -703,12 +658,12 @@ function LiveTimer({ startTime }) {
   const s = Math.floor((diff % (1000 * 60)) / 1000);
   
   return (
-    <div className="live-timer">
-      <span className="timer-hours">{String(h).padStart(2, "0")}</span>
+    <div className="live-timer-mobile">
+      <span className="timer-digit">{String(h).padStart(2, "0")}</span>
       <span className="timer-separator">:</span>
-      <span className="timer-minutes">{String(m).padStart(2, "0")}</span>
+      <span className="timer-digit">{String(m).padStart(2, "0")}</span>
       <span className="timer-separator">:</span>
-      <span className="timer-seconds">{String(s).padStart(2, "0")}</span>
+      <span className="timer-digit">{String(s).padStart(2, "0")}</span>
     </div>
   );
 }
