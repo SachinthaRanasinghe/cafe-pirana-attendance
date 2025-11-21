@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "file-saver": "^2.0.5",
-    "firebase": "^12.5.0",
-    "jspdf": "^3.0.3",
+    "firebase": "^12.6.0",
+    "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "prop-types": "^15.8.1",
     "react": "^19.1.1",

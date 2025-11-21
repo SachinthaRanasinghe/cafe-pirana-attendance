@@ -20,11 +20,13 @@ export default function SalaryManagement({ onLogout }) {
   const [loading, setLoading] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [monthlySalary, setMonthlySalary] = useState("");
+  const [otRate, setOtRate] = useState(""); // New state for OT rate
   const [activeTab, setActiveTab] = useState("setup");
   const [isEditing, setIsEditing] = useState(false);
   const [approvedAdvances, setApprovedAdvances] = useState({});
-  const [otRequests, setOtRequests] = useState({});
+  const [adjustmentRequests, setAdjustmentRequests] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
+  const [staffLoading, setStaffLoading] = useState(true);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,23 +42,36 @@ export default function SalaryManagement({ onLogout }) {
 
   // Fetch all staff members from sessions
   useEffect(() => {
+    setStaffLoading(true);
     const q = query(collection(db, "sessions"), orderBy("staffName"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const staffMap = new Map();
-      
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (!staffMap.has(data.staffUid)) {
-          staffMap.set(data.staffUid, {
-            staffUid: data.staffUid,
-            staffName: data.staffName,
-            staffId: data.staffId
-          });
-        }
-      });
-      
-      setStaffMembers(Array.from(staffMap.values()));
-    });
+    
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const staffMap = new Map();
+        
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          
+          if (data.staffUid && data.staffName) {
+            if (!staffMap.has(data.staffUid)) {
+              staffMap.set(data.staffUid, {
+                staffUid: data.staffUid,
+                staffName: data.staffName,
+                staffId: data.staffId || "N/A"
+              });
+            }
+          }
+        });
+        
+        const staffArray = Array.from(staffMap.values());
+        setStaffMembers(staffArray);
+        setStaffLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching staff members:", error);
+        setStaffLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, []);
@@ -120,58 +135,68 @@ export default function SalaryManagement({ onLogout }) {
     return () => unsubscribe();
   }, []);
 
-  // Fetch approved OT requests for all staff
+  // Fetch approved adjustment requests for all staff
   useEffect(() => {
-    const fetchOTRequests = async () => {
+    const fetchAdjustmentRequests = async () => {
       try {
         const q = query(
-          collection(db, "otRequests"),
+          collection(db, "adjustmentRequests"),
           where("status", "==", "approved")
         );
         
         const querySnapshot = await getDocs(q);
-        const otData = {};
+        const adjustmentData = {};
         
         querySnapshot.forEach((doc) => {
           const data = doc.data();
           const staffUid = data.staffUid;
           const month = data.shiftMonth || data.month;
           
-          if (!otData[staffUid]) {
-            otData[staffUid] = {};
+          if (!adjustmentData[staffUid]) {
+            adjustmentData[staffUid] = {};
           }
           
-          if (!otData[staffUid][month]) {
-            otData[staffUid][month] = {
-              totalAmount: 0,
-              totalHours: 0,
-              sessions: 0
+          if (!adjustmentData[staffUid][month]) {
+            adjustmentData[staffUid][month] = {
+              totalOTAmount: 0,
+              totalShortAmount: 0,
+              totalOTHours: 0,
+              totalShortHours: 0,
+              otSessions: 0,
+              shortSessions: 0
             };
           }
           
-          otData[staffUid][month].totalAmount += data.otAmount || 0;
-          otData[staffUid][month].totalHours += data.otHours || 0;
-          otData[staffUid][month].sessions += 1;
+          if (data.adjustmentType === 'overtime') {
+            adjustmentData[staffUid][month].totalOTAmount += data.adjustmentAmount || 0;
+            adjustmentData[staffUid][month].totalOTHours += data.adjustmentHours || 0;
+            adjustmentData[staffUid][month].otSessions += 1;
+          } else if (data.adjustmentType === 'short_time') {
+            adjustmentData[staffUid][month].totalShortAmount += data.adjustmentAmount || 0;
+            adjustmentData[staffUid][month].totalShortHours += data.adjustmentHours || 0;
+            adjustmentData[staffUid][month].shortSessions += 1;
+          }
         });
         
-        setOtRequests(otData);
+        setAdjustmentRequests(adjustmentData);
       } catch (error) {
-        console.error("Error fetching OT requests:", error);
+        console.error("Error fetching adjustment requests:", error);
       }
     };
 
-    fetchOTRequests();
+    fetchAdjustmentRequests();
     
     const unsubscribe = onSnapshot(
-      query(collection(db, "otRequests"), where("status", "==", "approved")),
+      query(collection(db, "adjustmentRequests"), where("status", "==", "approved")),
       () => {
-        fetchOTRequests();
+        fetchAdjustmentRequests();
       }
     );
 
     return () => unsubscribe();
   }, []);
 
+  // Handle setting salary and OT rate
   const handleSetSalary = async (staff) => {
     if (!monthlySalary || isNaN(monthlySalary) || monthlySalary <= 0) {
       alert("Please enter a valid monthly salary amount");
@@ -186,6 +211,7 @@ export default function SalaryManagement({ onLogout }) {
         staffId: staff.staffId,
         monthlySalary: parseFloat(monthlySalary),
         hourlyRate: parseFloat(monthlySalary) / (26 * 8),
+        otRate: otRate ? parseFloat(otRate) : 200, // Default to 200 if not set
         updatedAt: new Date().toISOString(),
         createdAt: salaries[staff.staffUid]?.createdAt || new Date().toISOString()
       };
@@ -193,9 +219,11 @@ export default function SalaryManagement({ onLogout }) {
       await setDoc(doc(db, "salaries", staff.staffUid), salaryData);
       
       alert(
-        `${isEditing ? 'Updated' : 'Set'} salary for ${staff.staffName}: Rs. ${monthlySalary}/month`
+        `${isEditing ? 'Updated' : 'Set'} salary for ${staff.staffName}: Rs. ${monthlySalary}/month\n` +
+        `OT Rate: Rs. ${salaryData.otRate}/hour`
       );
       setMonthlySalary("");
+      setOtRate("");
       setSelectedStaff(null);
       setIsEditing(false);
     } catch (error) {
@@ -211,19 +239,57 @@ export default function SalaryManagement({ onLogout }) {
     if (existingSalary) {
       setSelectedStaff(staff);
       setMonthlySalary(existingSalary.monthlySalary.toString());
+      setOtRate(existingSalary.otRate?.toString() || "200");
       setIsEditing(true);
       setActiveTab("setup");
     }
   };
 
-  // Calculate remaining salary after advances
-  const calculateRemainingSalary = (staffUid, monthlySalary) => {
-    if (!approvedAdvances[staffUid]) return monthlySalary;
+  // Get OT rate for a staff member
+  const getOtRate = (staffUid) => {
+    return salaries[staffUid]?.otRate || 200; // Default to 200 if not set
+  };
+
+  // Calculate total adjustments for a staff member using their specific OT rate
+  const getTotalAdjustments = (staffUid) => {
+    if (!adjustmentRequests[staffUid]) return 0;
     
     const currentMonth = getShiftMonth(new Date());
-    const advancesThisMonth = approvedAdvances[staffUid][currentMonth] || 0;
+    const monthData = adjustmentRequests[staffUid][currentMonth] || { totalOTAmount: 0, totalShortAmount: 0 };
     
-    return Math.max(0, monthlySalary - advancesThisMonth);
+    return monthData.totalOTAmount - monthData.totalShortAmount;
+  };
+
+  // Calculate total OT for a staff member
+  const getTotalOT = (staffUid) => {
+    if (!adjustmentRequests[staffUid]) return 0;
+    
+    const currentMonth = getShiftMonth(new Date());
+    return adjustmentRequests[staffUid][currentMonth]?.totalOTAmount || 0;
+  };
+
+  // Calculate total Short Time for a staff member
+  const getTotalShort = (staffUid) => {
+    if (!adjustmentRequests[staffUid]) return 0;
+    
+    const currentMonth = getShiftMonth(new Date());
+    return adjustmentRequests[staffUid][currentMonth]?.totalShortAmount || 0;
+  };
+
+  // Calculate total OT hours for a staff member
+  const getTotalOTHours = (staffUid) => {
+    if (!adjustmentRequests[staffUid]) return 0;
+    
+    const currentMonth = getShiftMonth(new Date());
+    return adjustmentRequests[staffUid][currentMonth]?.totalOTHours || 0;
+  };
+
+  // Calculate total Short Time hours for a staff member
+  const getTotalShortHours = (staffUid) => {
+    if (!adjustmentRequests[staffUid]) return 0;
+    
+    const currentMonth = getShiftMonth(new Date());
+    return adjustmentRequests[staffUid][currentMonth]?.totalShortHours || 0;
   };
 
   // Calculate total advances for a staff member
@@ -234,28 +300,12 @@ export default function SalaryManagement({ onLogout }) {
     return approvedAdvances[staffUid][currentMonth] || 0;
   };
 
-  // Calculate total OT for a staff member
-  const getTotalOT = (staffUid) => {
-    if (!otRequests[staffUid]) return 0;
-    
-    const currentMonth = getShiftMonth(new Date());
-    return otRequests[staffUid][currentMonth]?.totalAmount || 0;
-  };
-
-  // Calculate OT hours for a staff member
-  const getTotalOTHours = (staffUid) => {
-    if (!otRequests[staffUid]) return 0;
-    
-    const currentMonth = getShiftMonth(new Date());
-    return otRequests[staffUid][currentMonth]?.totalHours || 0;
-  };
-
-  // Calculate net salary (basic + OT - advances)
+  // Calculate net salary (basic + OT - Short Time - advances)
   const calculateNetSalary = (staffUid, monthlySalary) => {
     const advances = getTotalAdvances(staffUid);
-    const ot = getTotalOT(staffUid);
+    const adjustments = getTotalAdjustments(staffUid);
     
-    return Math.max(0, monthlySalary + ot - advances);
+    return Math.max(0, monthlySalary + adjustments - advances);
   };
 
   // Calculate advance usage percentage
@@ -271,15 +321,18 @@ export default function SalaryManagement({ onLogout }) {
     
     let totalAdvances = 0;
     let totalOT = 0;
+    let totalShort = 0;
     let totalNetSalary = 0;
     
     Object.keys(salaries).forEach(staffUid => {
       const salary = salaries[staffUid];
       const advances = getTotalAdvances(staffUid);
       const ot = getTotalOT(staffUid);
+      const short = getTotalShort(staffUid);
       
       totalAdvances += advances;
       totalOT += ot;
+      totalShort += short;
       totalNetSalary += calculateNetSalary(staffUid, salary.monthlySalary);
     });
     
@@ -289,21 +342,29 @@ export default function SalaryManagement({ onLogout }) {
       totalMonthlySalary, 
       totalAdvances,
       totalOT,
-      totalNetSalary
+      totalShort,
+      totalNetSalary,
+      netAdjustments: totalOT - totalShort
     };
   };
 
   const stats = calculateStats();
 
   // Filter staff members for search
-  const filteredStaffMembers = staffMembers.filter(staff =>
-    staff.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    staff.staffId.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStaffMembers = staffMembers.filter(staff => {
+    if (!staff || !staff.staffName || !staff.staffId) return false;
+    
+    return (
+      staff.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      staff.staffId.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   const filteredSalaries = Object.values(salaries).filter(salary =>
-    salary.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    salary.staffId.toLowerCase().includes(searchTerm.toLowerCase())
+    salary.staffName && salary.staffId && (
+      salary.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      salary.staffId.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   const isActiveRoute = (path) => location.pathname === path;
@@ -345,7 +406,7 @@ export default function SalaryManagement({ onLogout }) {
         <section className="welcome-section">
           <div className="welcome-content">
             <h2>Salary Management</h2>
-            <p>Set and manage staff monthly salaries</p>
+            <p>Set salaries and OT rates for staff members</p>
           </div>
           <div className="date-display-mobile">
             {new Date().toLocaleDateString('en-US', { 
@@ -394,8 +455,16 @@ export default function SalaryManagement({ onLogout }) {
             <div className="stat-card-mobile">
               <div className="stat-icon-mobile info">🕒</div>
               <div className="stat-content-mobile">
-                <div className="stat-value">{Math.round(stats.totalOT / 1000)}k</div>
+                <div className="stat-value">+{Math.round(stats.totalOT / 1000)}k</div>
                 <div className="stat-label">Overtime</div>
+              </div>
+            </div>
+
+            <div className="stat-card-mobile">
+              <div className="stat-icon-mobile danger">⏰</div>
+              <div className="stat-content-mobile">
+                <div className="stat-value">-{Math.round(stats.totalShort / 1000)}k</div>
+                <div className="stat-label">Short Time</div>
               </div>
             </div>
 
@@ -419,6 +488,7 @@ export default function SalaryManagement({ onLogout }) {
                 setIsEditing(false);
                 setSelectedStaff(null);
                 setMonthlySalary("");
+                setOtRate("");
               }}
             >
               <span className="tab-icon">💰</span>
@@ -460,7 +530,7 @@ export default function SalaryManagement({ onLogout }) {
         {activeTab === "setup" && (
           <section className="section-mobile">
             <div className="section-header-mobile">
-              <h3>{isEditing ? "Edit Monthly Salary" : "Set Monthly Salary"}</h3>
+              <h3>{isEditing ? "Edit Salary & OT Rate" : "Set Salary & OT Rate"}</h3>
               <span className="badge-mobile pending">
                 {staffMembers.length - Object.keys(salaries).length} pending
               </span>
@@ -469,30 +539,45 @@ export default function SalaryManagement({ onLogout }) {
             <div className="salary-setup-form-mobile">
               <div className="form-group-mobile">
                 <label className="form-label-mobile">Select Staff Member</label>
-                <select 
-                  value={selectedStaff?.staffUid || ""} 
-                  onChange={(e) => {
-                    const staff = staffMembers.find(s => s.staffUid === e.target.value);
-                    setSelectedStaff(staff);
-                    if (staff) {
-                      const existingSalary = salaries[staff.staffUid];
-                      setMonthlySalary(existingSalary?.monthlySalary?.toString() || "");
-                      setIsEditing(!!existingSalary);
-                    } else {
-                      setMonthlySalary("");
-                      setIsEditing(false);
-                    }
-                  }}
-                  className="form-select-mobile"
-                >
-                  <option value="">Choose staff member...</option>
-                  {filteredStaffMembers.map(staff => (
-                    <option key={staff.staffUid} value={staff.staffUid}>
-                      {staff.staffName} (ID: {staff.staffId})
-                      {salaries[staff.staffUid] && " - 💰 Salary Set"}
-                    </option>
-                  ))}
-                </select>
+                
+                {staffLoading ? (
+                  <div className="loading-state-mobile">
+                    <div className="loading-spinner"></div>
+                    <span>Loading staff members...</span>
+                  </div>
+                ) : filteredStaffMembers.length === 0 ? (
+                  <div className="empty-dropdown-mobile">
+                    <span>No staff members found</span>
+                    <small>Make sure staff have clocked in at least once</small>
+                  </div>
+                ) : (
+                  <select 
+                    value={selectedStaff?.staffUid || ""} 
+                    onChange={(e) => {
+                      const staff = filteredStaffMembers.find(s => s.staffUid === e.target.value);
+                      setSelectedStaff(staff);
+                      if (staff) {
+                        const existingSalary = salaries[staff.staffUid];
+                        setMonthlySalary(existingSalary?.monthlySalary?.toString() || "");
+                        setOtRate(existingSalary?.otRate?.toString() || "200");
+                        setIsEditing(!!existingSalary);
+                      } else {
+                        setMonthlySalary("");
+                        setOtRate("200");
+                        setIsEditing(false);
+                      }
+                    }}
+                    className="form-select-mobile"
+                  >
+                    <option value="">Choose staff member...</option>
+                    {filteredStaffMembers.map(staff => (
+                      <option key={staff.staffUid} value={staff.staffUid}>
+                        {staff.staffName} (ID: {staff.staffId})
+                        {salaries[staff.staffUid] && " - 💰 Salary Set"}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {selectedStaff && (
@@ -509,12 +594,12 @@ export default function SalaryManagement({ onLogout }) {
                           <span className="salary-amount">
                             Current: Rs. {salaries[selectedStaff.staffUid].monthlySalary.toLocaleString()}/month
                           </span>
-                          {approvedAdvances[selectedStaff.staffUid] && (
-                            <div className="advance-info">
-                              <span>Advances: Rs. {getTotalAdvances(selectedStaff.staffUid).toLocaleString()}</span>
-                              <span>Remaining: Rs. {calculateRemainingSalary(selectedStaff.staffUid, salaries[selectedStaff.staffUid].monthlySalary).toLocaleString()}</span>
-                            </div>
-                          )}
+                          <div className="adjustment-info">
+                            <span>OT Rate: Rs. {getOtRate(selectedStaff.staffUid)}/hour</span>
+                            <span>OT: +Rs. {getTotalOT(selectedStaff.staffUid).toLocaleString()}</span>
+                            <span>Short: -Rs. {getTotalShort(selectedStaff.staffUid).toLocaleString()}</span>
+                            <span>Advances: -Rs. {getTotalAdvances(selectedStaff.staffUid).toLocaleString()}</span>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -533,6 +618,27 @@ export default function SalaryManagement({ onLogout }) {
                     />
                   </div>
 
+                  <div className="form-group-mobile">
+                    <label className="form-label-mobile">
+                      Overtime Rate (Rs./hour)
+                      <span className="help-text"> - Custom rate for this staff member</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={otRate}
+                      onChange={(e) => setOtRate(e.target.value)}
+                      placeholder="Enter OT rate per hour"
+                      className="form-input-mobile"
+                      min="0"
+                      step="10"
+                    />
+                    <div className="rate-info-mobile">
+                      <span className="rate-note">
+                        Default rate: Rs. 200/hour. Set custom rate for this staff member.
+                      </span>
+                    </div>
+                  </div>
+
                   {monthlySalary && (
                     <div className="salary-breakdown-card-mobile">
                       <div className="breakdown-header-mobile">
@@ -549,6 +655,10 @@ export default function SalaryManagement({ onLogout }) {
                           <span className="breakdown-value">Rs. {(monthlySalary / (26 * 8)).toFixed(2)}</span>
                         </div>
                         <div className="breakdown-item-mobile highlight">
+                          <span className="breakdown-label">OT Rate</span>
+                          <span className="breakdown-value">Rs. {otRate || "200"}/hour</span>
+                        </div>
+                        <div className="breakdown-item-mobile">
                           <span className="breakdown-label">Max Advance (50%)</span>
                           <span className="breakdown-value">Rs. {(monthlySalary * 0.5).toLocaleString()}</span>
                         </div>
@@ -596,10 +706,12 @@ export default function SalaryManagement({ onLogout }) {
                 {filteredSalaries.map(salary => {
                   const totalAdvances = getTotalAdvances(salary.staffUid);
                   const totalOT = getTotalOT(salary.staffUid);
+                  const totalShort = getTotalShort(salary.staffUid);
                   const totalOTHours = getTotalOTHours(salary.staffUid);
-                  const remainingSalary = calculateRemainingSalary(salary.staffUid, salary.monthlySalary);
+                  const totalShortHours = getTotalShortHours(salary.staffUid);
                   const netSalary = calculateNetSalary(salary.staffUid, salary.monthlySalary);
                   const advanceUsage = getAdvanceUsagePercentage(salary.staffUid, salary.monthlySalary);
+                  const staffOtRate = getOtRate(salary.staffUid);
                   
                   return (
                     <div key={salary.staffUid} className="salary-item-mobile">
@@ -611,6 +723,9 @@ export default function SalaryManagement({ onLogout }) {
                           <div className="staff-details-mobile">
                             <h4>{salary.staffName}</h4>
                             <span className="staff-id">ID: {salary.staffId}</span>
+                            <span className="ot-rate-badge">
+                              OT Rate: Rs. {staffOtRate}/hour
+                            </span>
                           </div>
                         </div>
                         <div className="salary-amount-main-mobile">
@@ -631,6 +746,10 @@ export default function SalaryManagement({ onLogout }) {
                             <span className="stat-value">Rs. {salary.hourlyRate?.toFixed(0) || (salary.monthlySalary / (26 * 8)).toFixed(0)}</span>
                           </div>
                           <div className="quick-stat highlight">
+                            <span className="stat-label">OT Rate</span>
+                            <span className="stat-value">Rs. {staffOtRate}/h</span>
+                          </div>
+                          <div className="quick-stat">
                             <span className="stat-label">Max Advance</span>
                             <span className="stat-value">Rs. {(salary.monthlySalary * 0.5).toLocaleString()}</span>
                           </div>
@@ -647,7 +766,15 @@ export default function SalaryManagement({ onLogout }) {
                               <div className="summary-item-mobile positive">
                                 <span className="summary-label">Overtime:</span>
                                 <span className="summary-value">
-                                  + Rs. {totalOT.toLocaleString()}
+                                  + Rs. {totalOT.toLocaleString()} ({totalOTHours.toFixed(1)}h @ Rs.{staffOtRate}/h)
+                                </span>
+                              </div>
+                            )}
+                            {totalShort > 0 && (
+                              <div className="summary-item-mobile negative">
+                                <span className="summary-label">Short Time:</span>
+                                <span className="summary-value">
+                                  - Rs. {totalShort.toLocaleString()} ({totalShortHours.toFixed(1)}h)
                                 </span>
                               </div>
                             )}
@@ -697,7 +824,7 @@ export default function SalaryManagement({ onLogout }) {
                           })}
                         >
                           <span className="btn-icon">✏️</span>
-                          <span className="btn-text">Edit Salary</span>
+                          <span className="btn-text">Edit Salary & OT Rate</span>
                         </button>
                       </div>
                     </div>
@@ -724,6 +851,7 @@ export default function SalaryManagement({ onLogout }) {
                   const randomStaff = staffWithoutSalary[Math.floor(Math.random() * staffWithoutSalary.length)];
                   setSelectedStaff(randomStaff);
                   setMonthlySalary("");
+                  setOtRate("200");
                   setIsEditing(false);
                   setActiveTab("setup");
                 } else {
@@ -740,6 +868,7 @@ export default function SalaryManagement({ onLogout }) {
               onClick={() => {
                 setSelectedStaff(null);
                 setMonthlySalary("");
+                setOtRate("200");
                 setIsEditing(false);
               }}
             >
@@ -781,7 +910,7 @@ export default function SalaryManagement({ onLogout }) {
           onClick={() => safeNavigate('/admin/ot-approvals')}
         >
           <span className="nav-icon">🕒</span>
-          <span className="nav-label">OT</span>
+          <span className="nav-label">Adjustments</span>
         </button>
         
         <button 

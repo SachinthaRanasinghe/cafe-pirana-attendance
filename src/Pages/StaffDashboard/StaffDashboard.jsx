@@ -20,6 +20,8 @@ export default function StaffDashboard({ staffData, onLogout }) {
   const [todaySessions, setTodaySessions] = useState([]);
   const [totalHoursToday, setTotalHoursToday] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [endingShift, setEndingShift] = useState(false);
+  const [staffSalary, setStaffSalary] = useState(null);
   
   // Location verification states
   const [checkingLocation, setCheckingLocation] = useState(false);
@@ -36,7 +38,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
   // Allowed location (Cafe Piranha - Ella)
   const ALLOWED_LAT = 6.871796;  
   const ALLOWED_LNG = 81.057271;
-  const MAX_DISTANCE_METERS = 100;
+  const MAX_DISTANCE_METERS = 10000000;
 
   // Helper functions for shift-based tracking
   const getShiftDate = (timestamp) => {
@@ -125,45 +127,66 @@ export default function StaffDashboard({ staffData, onLogout }) {
     });
   };
 
-  // === Calculate OT Hours ===
-  const calculateShiftOTHours = (clockIn, clockOut) => {
-    try {
-      const clockInTime = new Date(clockIn);
-      const clockOutTime = new Date(clockOut);
-      
-      if (isNaN(clockInTime.getTime()) || isNaN(clockOutTime.getTime())) {
-        throw new Error("Invalid date values");
+  // === Fetch Staff Salary Data ===
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, "salaries", uid), (doc) => {
+      if (doc.exists()) {
+        setStaffSalary(doc.data());
+      } else {
+        setStaffSalary(null);
       }
+    });
 
-      const hoursWorked = (clockOutTime - clockInTime) / (1000 * 60 * 60);
-      
-      if (isNaN(hoursWorked) || !isFinite(hoursWorked)) {
-        throw new Error("Invalid hours calculation");
+    return () => unsubscribe();
+  }, [uid]);
+
+  // === Calculate Daily Hours and Adjustments (TEST MODE) ===
+  const calculateDailyAdjustments = (sessions) => {
+    const totalSeconds = sessions.reduce((sum, s) => {
+      if (s.clockOut && s.duration) {
+        return sum + Math.floor(s.duration / 1000);
       }
+      return sum;
+    }, 0);
 
-      const regularHours = Math.min(Math.max(0, hoursWorked), 12);
-      const otHours = Math.max(hoursWorked - 12, 0);
-      const otAmount = otHours * 200;
-      
-      return {
-        hoursWorked,
-        regularHours,
-        otHours,
-        otAmount,
-        hasOT: otHours > 0,
-        isNightShift: clockInTime.getHours() >= 18
-      };
-    } catch (error) {
-      console.error("Error calculating OT hours:", error);
-      return {
-        hoursWorked: 0,
-        regularHours: 0,
-        otHours: 0,
-        otAmount: 0,
-        hasOT: false,
-        isNightShift: false
-      };
+    // Test Mode Constants
+    const FULL_SHIFT_SECONDS = 60;      // 60 seconds = 12 hours
+    const INTERVAL_SECONDS = 5;         // 5 seconds = 1 hour
+    const RATE_PER_INTERVAL = staffSalary?.otRate || 200;
+
+    let regularSeconds = Math.min(totalSeconds, FULL_SHIFT_SECONDS);
+    let otSeconds = 0;
+    let shortSeconds = 0;
+
+    if (totalSeconds > FULL_SHIFT_SECONDS) {
+      otSeconds = totalSeconds - FULL_SHIFT_SECONDS;
+    } else if (totalSeconds < FULL_SHIFT_SECONDS) {
+      shortSeconds = FULL_SHIFT_SECONDS - totalSeconds;
     }
+
+    const otIntervals = Math.floor(otSeconds / INTERVAL_SECONDS);
+    const shortIntervals = Math.ceil(shortSeconds / INTERVAL_SECONDS);
+    const otAmount = otIntervals * RATE_PER_INTERVAL;
+    const shortAmount = shortIntervals * RATE_PER_INTERVAL;
+
+    return {
+      totalSecondsToday: totalSeconds,
+      regularSeconds: regularSeconds,
+      otSeconds: otSeconds,
+      otIntervals: otIntervals,
+      otAmount: otAmount,
+      hasOT: otIntervals > 0,
+      shortSeconds: shortSeconds,
+      shortIntervals: shortIntervals,
+      shortAmount: shortAmount,
+      hasShort: shortIntervals > 0,
+      adjustmentType: otIntervals > 0 ? "overtime" : shortIntervals > 0 ? "short_time" : "none",
+      testingMode: true,
+      fullShiftSeconds: FULL_SHIFT_SECONDS,
+      intervalSeconds: INTERVAL_SECONDS,
+      ratePerInterval: RATE_PER_INTERVAL,
+      staffOtRate: RATE_PER_INTERVAL,
+    };
   };
 
   // === Real-time Firestore listener ===
@@ -292,8 +315,6 @@ export default function StaffDashboard({ staffData, onLogout }) {
       const clockInTime = new Date(currentSession.clockIn);
       const duration = clockOutTime - clockInTime;
 
-      const otCalculation = calculateShiftOTHours(currentSession.clockIn, clockOutTime);
-
       const updateData = {
         clockOut: clockOutTime.toISOString(),
         duration: duration,
@@ -305,20 +326,11 @@ export default function StaffDashboard({ staffData, onLogout }) {
           verified: true,
           distance: getDistance(locationResult.coords.latitude, locationResult.coords.longitude, ALLOWED_LAT, ALLOWED_LNG)
         },
-        regularHours: otCalculation.regularHours || 0,
-        otHours: otCalculation.otHours || 0,
-        otAmount: otCalculation.otAmount || 0,
-        otStatus: otCalculation.hasOT ? "pending" : "none",
-        isNightShift: otCalculation.isNightShift || false,
         crossMidnight: clockInTime.toDateString() !== clockOutTime.toDateString()
       };
 
       const sessionRef = doc(db, "sessions", currentSession.id);
       await updateDoc(sessionRef, updateData);
-
-      if (otCalculation.hasOT) {
-        await createOTRequest(otCalculation, currentSession.id);
-      }
 
       setIsClockedIn(false);
       setCurrentSession(null);
@@ -331,32 +343,137 @@ export default function StaffDashboard({ staffData, onLogout }) {
     }
   };
 
-  // === Create OT Request ===
-  const createOTRequest = async (otCalculation, sessionId) => {
+  // === End Shift - Calculate Daily Adjustments ===
+  const endShift = async () => {
+    if (todaySessions.length === 0) {
+      showNotification("No sessions today to end shift", "info");
+      return;
+    }
+
+    setEndingShift(true);
+    
     try {
-      const clockInTime = new Date(currentSession.clockIn);
-      const otRequest = {
+      const locationResult = await verifyLocation();
+      
+      if (!locationResult.allowed) {
+        showNotification(`Cannot end shift: ${locationMessage}`, "error");
+        setEndingShift(false);
+        return;
+      }
+
+      const dailyAdjustments = calculateDailyAdjustments(todaySessions);
+      
+      let summaryMessage = `End Your Shift?\n\n`;
+      summaryMessage += `Total Time: ${formatSeconds(dailyAdjustments.totalSecondsToday)}\n`;
+      summaryMessage += `Regular Time: ${formatSeconds(dailyAdjustments.regularSeconds)}\n`;
+      
+      if (dailyAdjustments.hasOT) {
+        summaryMessage += `Overtime: +${dailyAdjustments.otIntervals} x ${dailyAdjustments.intervalSeconds}-second intervals\n`;
+        summaryMessage += `OT Amount: +Rs. ${dailyAdjustments.otAmount} (Rate: Rs. ${dailyAdjustments.staffOtRate}/hour)\n`;
+      }
+      
+      if (dailyAdjustments.hasShort) {
+        summaryMessage += `Short Time: -${dailyAdjustments.shortIntervals} x ${dailyAdjustments.intervalSeconds}-second intervals\n`;
+        summaryMessage += `Deduction: -Rs. ${dailyAdjustments.shortAmount}\n`;
+      }
+      
+      if (!dailyAdjustments.hasOT && !dailyAdjustments.hasShort) {
+        summaryMessage += `Perfect shift! Exactly ${dailyAdjustments.fullShiftSeconds} seconds worked\n`;
+      }
+      
+      summaryMessage += `\nThis will create separate requests for admin approval.`;
+
+      const confirmEnd = window.confirm(summaryMessage);
+      
+      if (!confirmEnd) {
+        setEndingShift(false);
+        return;
+      }
+
+      if (dailyAdjustments.hasOT) {
+        await createAdjustmentRequest({
+          ...dailyAdjustments,
+          adjustmentType: 'overtime',
+          adjustmentHours: dailyAdjustments.otIntervals,
+          adjustmentAmount: dailyAdjustments.otAmount,
+          adjustmentIntervals: dailyAdjustments.otIntervals
+        });
+      }
+
+      if (dailyAdjustments.hasShort) {
+        await createAdjustmentRequest({
+          ...dailyAdjustments,
+          adjustmentType: 'short_time',
+          adjustmentHours: dailyAdjustments.shortIntervals,
+          adjustmentAmount: dailyAdjustments.shortAmount,
+          adjustmentIntervals: dailyAdjustments.shortIntervals
+        });
+      }
+
+      let successMessage = "Shift ended! ";
+      if (dailyAdjustments.hasOT && dailyAdjustments.hasShort) {
+        successMessage += `+${dailyAdjustments.otIntervals} OT intervals and -${dailyAdjustments.shortIntervals} Short Time intervals requested`;
+      } else if (dailyAdjustments.hasOT) {
+        successMessage += `+${dailyAdjustments.otIntervals} OT intervals requested (Rate: Rs. ${dailyAdjustments.staffOtRate}/hour)`;
+      } else if (dailyAdjustments.hasShort) {
+        successMessage += `-${dailyAdjustments.shortIntervals} Short Time intervals reported`;
+      } else {
+        successMessage += 'Perfect timing! No adjustments needed';
+      }
+
+      showNotification(successMessage, "success");
+
+    } catch (error) {
+      console.error("Error ending shift:", error);
+      showNotification("Error ending shift: " + error.message, "error");
+    } finally {
+      setEndingShift(false);
+    }
+  };
+
+  // === Create Adjustment Request (OT or Short Time) ===
+  const createAdjustmentRequest = async (adjustments) => {
+    try {
+      const request = {
         staffUid: uid,
         staffName: staffName,
         staffId: staffId,
-        sessionId: sessionId,
         date: new Date().toDateString(),
-        shiftDate: getShiftDate(clockInTime),
-        regularHours: otCalculation.regularHours || 0,
-        otHours: otCalculation.otHours || 0,
-        otAmount: otCalculation.otAmount || 0,
+        shiftDate: getShiftDate(new Date()),
+        totalHours: adjustments.totalHoursToday || 0,
+        totalSeconds: adjustments.totalSecondsToday || 0,
+        regularHours: adjustments.regularHours || 0,
+        regularSeconds: adjustments.regularSeconds || 0,
+        adjustmentType: adjustments.adjustmentType,
+        adjustmentHours: adjustments.adjustmentHours || 0,
+        adjustmentSeconds: adjustments.adjustmentType === 'overtime' ? 
+          (adjustments.otSeconds || 0) : 
+          (adjustments.shortSeconds || 0),
+        adjustmentIntervals: adjustments.adjustmentIntervals || 0,
+        adjustmentAmount: adjustments.adjustmentAmount || 0,
         status: "pending",
         requestedAt: new Date().toISOString(),
         month: new Date().toISOString().substring(0, 7),
-        shiftMonth: getShiftMonth(clockInTime),
-        isNightShift: otCalculation.isNightShift || false,
-        crossMidnight: new Date(currentSession.clockIn).toDateString() !== new Date().toDateString()
+        shiftMonth: getShiftMonth(new Date()),
+        sessions: todaySessions.map(s => ({
+          sessionId: s.id,
+          clockIn: s.clockIn,
+          clockOut: s.clockOut || null,
+          duration: s.duration || 0
+        })),
+        testingMode: true,
+        ratePerInterval: adjustments.ratePerInterval || 200,
+        intervalSeconds: adjustments.intervalSeconds || 5,
+        fullShiftSeconds: adjustments.fullShiftSeconds || 60,
+        staffOtRate: adjustments.staffOtRate || (staffSalary?.otRate || 200)
       };
 
-      await addDoc(collection(db, "otRequests"), otRequest);
-      console.log("OT request created:", otRequest);
+      console.log("Creating adjustment request:", request);
+      await addDoc(collection(db, "adjustmentRequests"), request);
+      console.log("Adjustment request created successfully");
     } catch (error) {
-      console.error("Error creating OT request:", error);
+      console.error("Error creating adjustment request:", error);
+      throw error;
     }
   };
 
@@ -386,7 +503,6 @@ export default function StaffDashboard({ staffData, onLogout }) {
   };
 
   const showNotification = (msg, type = "info") => {
-    // In a real app, you'd use a proper notification system
     alert(msg);
   };
 
@@ -400,7 +516,15 @@ export default function StaffDashboard({ staffData, onLogout }) {
   const formatDuration = (ms) => {
     const hours = Math.floor(ms / (1000 * 60 * 60));
     const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours}h ${minutes}m`;
+    const seconds = Math.floor((ms % (1000 * 60)) / 1000);
+    return `${hours}h ${minutes}m ${seconds}s`;
+  };
+
+  const formatSeconds = (totalSeconds) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return `${hours}h ${minutes}m ${seconds}s`;
   };
 
   const handleLogout = () => {
@@ -414,174 +538,361 @@ export default function StaffDashboard({ staffData, onLogout }) {
     if (onLogout) onLogout();
   };
 
+  // Calculate today's adjustments for display
+  const todayAdjustments = calculateDailyAdjustments(todaySessions);
+
   return (
     <div className="staff-dashboard">
-      {/* Mobile-Optimized Header */}
-      <header className="mobile-header">
-        <div className="header-content">
-          <div className="header-brand">
-            <div className="brand-icon">🏪</div>
-            <div className="brand-text">
-              <h1>Cafe Piranha</h1>
-              <span>Staff Portal</span>
+      {/* Enhanced Header */}
+      <header className="dashboard-header">
+        <div className="header-container">
+          <div className="brand-section">
+            <div className="logo-container">
+              <div className="logo-icon">☕</div>
+              <div className="brand-text">
+                <h1 className="brand-title">Cafe Piranha</h1>
+                <span className="brand-subtitle">Staff Portal</span>
+              </div>
             </div>
           </div>
           
-          <div className="header-user">
-            <div className="user-avatar">
-              {staffName.charAt(0).toUpperCase()}
+          <div className="user-section">
+            <div className="user-profile">
+              <div className="user-avatar">
+                {staffName.charAt(0).toUpperCase()}
+              </div>
+              <div className="user-details">
+                <span className="user-name">{staffName}</span>
+                <span className="user-id">ID: {staffId}</span>
+              </div>
             </div>
           </div>
         </div>
-        
-        <div className="user-info-mobile">
-          <span className="user-name">{staffName}</span>
-          <span className="user-id">ID: {staffId}</span>
+
+        {/* Status Bar */}
+        <div className="status-bar">
+          <div className="status-item">
+            <div className={`status-indicator ${isClockedIn ? 'active' : 'inactive'}`}>
+              <div className="status-pulse"></div>
+              <span className="status-text">
+                {isClockedIn ? 'Currently Working' : 'Available'}
+              </span>
+            </div>
+          </div>
+          
+          {staffSalary?.otRate && (
+            <div className="status-item">
+              <div className="rate-badge">
+                <span className="rate-icon">💰</span>
+                <span>OT Rate: Rs. {staffSalary.otRate}/hour</span>
+              </div>
+            </div>
+          )}
+          
+          <div className="status-item">
+            <div className="date-badge">
+              <span className="date-icon">📅</span>
+              <span>{new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                month: 'short', 
+                day: 'numeric' 
+              })}</span>
+            </div>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="mobile-main">
+      <main className="dashboard-main">
         {/* Welcome Section */}
         <section className="welcome-section">
-          <div className="welcome-content">
-            <h2>Welcome, {staffName.split(' ')[0]}!</h2>
-            <p>{new Date().toLocaleDateString('en-US', { 
-              weekday: 'short', 
-              month: 'short', 
-              day: 'numeric' 
-            })}</p>
+          <div className="welcome-card">
+            <div className="welcome-content">
+              <h2 className="welcome-title">
+                Good {getTimeOfDay()}, {staffName.split(' ')[0]}!
+              </h2>
+              <p className="welcome-subtitle">
+                Ready to start your shift at Cafe Piranha?
+              </p>
+              {staffSalary?.otRate && (
+                <div className="rate-card">
+                  <div className="rate-icon">⚡</div>
+                  <div className="rate-info">
+                    <span className="rate-label">Your OT Rate</span>
+                    <span className="rate-value">Rs. {staffSalary.otRate}/hour</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="welcome-graphic">
+              <div className="coffee-animation">☕✨</div>
+            </div>
           </div>
         </section>
 
-        {/* Clock Section - Mobile Optimized */}
+        {/* Clock Control Section */}
         <section className="clock-section">
-          <div className="clock-card-mobile">
-            <div className="clock-status">
-              <div className={`status-indicator ${isClockedIn ? 'active' : 'inactive'}`}>
-                <div className="status-dot"></div>
-                <span>{isClockedIn ? 'Clocked In' : 'Clocked Out'}</span>
+          <div className="clock-card">
+            <div className="clock-header">
+              <h3 className="clock-title">Shift Control</h3>
+              <div className="clock-status">
+                <div className={`status-badge ${isClockedIn ? 'clocked-in' : 'clocked-out'}`}>
+                  <div className="status-dot"></div>
+                  {isClockedIn ? 'ON SHIFT' : 'OFF SHIFT'}
+                </div>
               </div>
             </div>
 
+            {/* Active Timer */}
             {isClockedIn && currentSession && (
-              <div className="active-timer-section">
-                <LiveTimer startTime={new Date(currentSession.clockIn)} />
-                <p className="clock-in-time">
-                  Started at {formatTime(currentSession.clockIn)}
-                  {currentSession.isNightShift && " 🌙"}
-                </p>
+              <div className="active-session">
+                <div className="timer-container">
+                  <div className="timer-header">
+                    <span className="timer-label">Current Session</span>
+                    <span className="start-time">
+                      Started at {formatTime(currentSession.clockIn)}
+                      {currentSession.isNightShift && " 🌙"}
+                    </span>
+                  </div>
+                  <div className="live-timer-wrapper">
+                    <LiveTimer startTime={new Date(currentSession.clockIn)} />
+                  </div>
+                </div>
               </div>
             )}
 
-            <div className="clock-actions-mobile">
+            {/* Clock Actions */}
+            <div className="clock-actions">
               {!isClockedIn ? (
                 <button 
-                  className="btn-clock-in"
+                  className="btn-clock btn-clock-in"
                   onClick={clockIn}
                   disabled={loading || checkingLocation}
                 >
-                  <span className="btn-icon">🟢</span>
-                  <span className="btn-text">
-                    {loading ? 'Processing...' : 'Clock In'}
-                  </span>
+                  <div className="btn-content">
+                    <div className="btn-icon">🟢</div>
+                    <div className="btn-text">
+                      <span className="btn-main-text">Clock In</span>
+                      <span className="btn-sub-text">Start your shift</span>
+                    </div>
+                  </div>
+                  {loading && <div className="btn-spinner"></div>}
                 </button>
               ) : (
                 <button 
-                  className="btn-clock-out"
+                  className="btn-clock btn-clock-out"
                   onClick={clockOut}
                   disabled={loading || checkingLocation}
                 >
-                  <span className="btn-icon">🔴</span>
-                  <span className="btn-text">
-                    {loading ? 'Processing...' : 'Clock Out'}
-                  </span>
+                  <div className="btn-content">
+                    <div className="btn-icon">🔴</div>
+                    <div className="btn-text">
+                      <span className="btn-main-text">Clock Out</span>
+                      <span className="btn-sub-text">End current session</span>
+                    </div>
+                  </div>
+                  {loading && <div className="btn-spinner"></div>}
                 </button>
               )}
             </div>
 
-            {/* Location Check */}
-            <button 
-              className="btn-location-check"
-              onClick={checkLocationManually}
-              disabled={checkingLocation}
-            >
-              <span className="btn-icon">📍</span>
-              <span className="btn-text">
-                {checkingLocation ? 'Checking...' : 'Check Location'}
-              </span>
-            </button>
-
-            {/* Location Status */}
-            {locationMessage && (
-              <div className={`location-status-mobile ${locationAllowed ? 'success' : locationAllowed === false ? 'error' : 'info'}`}>
-                <span className="location-icon">
-                  {locationAllowed ? '✅' : locationAllowed === false ? '❌' : '📍'}
-                </span>
-                <span className="location-message">{locationMessage}</span>
+            {/* End Shift Section */}
+            {todaySessions.length > 0 && !isClockedIn && (
+              <div className="end-shift-section">
+                <div className="shift-divider">
+                  <span>Shift Complete</span>
+                </div>
+                <button 
+                  className="btn-end-shift"
+                  onClick={endShift}
+                  disabled={endingShift || checkingLocation}
+                >
+                  <div className="btn-content">
+                    <div className="btn-icon">⏹️</div>
+                    <div className="btn-text">
+                      <span className="btn-main-text">
+                        {endingShift ? 'Processing...' : 'End Shift'}
+                      </span>
+                      <span className="btn-sub-text">
+                        Calculate OT/Short Time adjustments
+                      </span>
+                    </div>
+                  </div>
+                </button>
+                <div className="test-mode-badge">
+                  <span className="test-icon">🧪</span>
+                  <span>Test Mode Active</span>
+                </div>
               </div>
             )}
+
+            {/* Location Section */}
+            <div className="location-section">
+              <button 
+                className="btn-location"
+                onClick={checkLocationManually}
+                disabled={checkingLocation}
+              >
+                <div className="btn-content">
+                  <div className="btn-icon">📍</div>
+                  <div className="btn-text">
+                    <span className="btn-main-text">
+                      {checkingLocation ? 'Checking...' : 'Verify Location'}
+                    </span>
+                  </div>
+                </div>
+              </button>
+              
+              {locationMessage && (
+                <div className={`location-status ${locationAllowed ? 'verified' : locationAllowed === false ? 'restricted' : 'checking'}`}>
+                  <div className="location-icon">
+                    {locationAllowed ? '✅' : locationAllowed === false ? '❌' : '📍'}
+                  </div>
+                  <span className="location-message">{locationMessage}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Today's Summary */}
+        <section className="summary-section">
+          <div className="summary-card">
+            <div className="summary-header">
+              <h3 className="summary-title">Today's Summary</h3>
+              <div className="total-time">
+                <span className="time-value">{formatSeconds(todayAdjustments.totalSecondsToday)}</span>
+                <span className="time-label">Total Time</span>
+              </div>
+            </div>
+            
+            <div className="summary-content">
+              <div className="summary-item">
+                <div className="summary-icon">⏱️</div>
+                <div className="summary-details">
+                  <span className="summary-label">Regular Time</span>
+                  <span className="summary-value">60 seconds</span>
+                </div>
+              </div>
+              
+              {todayAdjustments.hasOT && (
+                <div className="summary-item positive">
+                  <div className="summary-icon">🔼</div>
+                  <div className="summary-details">
+                    <span className="summary-label">Overtime</span>
+                    <span className="summary-value">
+                      +{todayAdjustments.otIntervals} intervals
+                    </span>
+                    <span className="summary-amount">
+                      +Rs. {todayAdjustments.otAmount}
+                      {staffSalary?.otRate && ` @ Rs. ${staffSalary.otRate}/hour`}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {todayAdjustments.hasShort && (
+                <div className="summary-item negative">
+                  <div className="summary-icon">🔽</div>
+                  <div className="summary-details">
+                    <span className="summary-label">Short Time</span>
+                    <span className="summary-value">
+                      -{todayAdjustments.shortIntervals} intervals
+                    </span>
+                    <span className="summary-amount">
+                      -Rs. {todayAdjustments.shortAmount}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {!todayAdjustments.hasOT && !todayAdjustments.hasShort && todayAdjustments.totalSecondsToday > 0 && (
+                <div className="summary-item perfect">
+                  <div className="summary-icon">🎯</div>
+                  <div className="summary-details">
+                    <span className="summary-label">Perfect Timing!</span>
+                    <span className="summary-value">No adjustments needed</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </section>
 
         {/* Quick Stats */}
-        <section className="quick-stats">
-          <div className="stat-item">
-            <div className="stat-value">{totalHoursToday.toFixed(1)}h</div>
-            <div className="stat-label">Today</div>
-          </div>
-          <div className="stat-item">
-            <div className="stat-value">{todaySessions.length}</div>
-            <div className="stat-label">Sessions</div>
-          </div>
-          <div className="stat-item">
-            <div className="stat-value">
-              {todaySessions.filter(s => s.otHours > 0).length}
+        <section className="stats-section">
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-icon primary">📊</div>
+              <div className="stat-content">
+                <div className="stat-value">{formatSeconds(todayAdjustments.totalSecondsToday)}</div>
+                <div className="stat-label">Today's Time</div>
+              </div>
             </div>
-            <div className="stat-label">OT</div>
+            
+            <div className="stat-card">
+              <div className="stat-icon secondary">🕒</div>
+              <div className="stat-content">
+                <div className="stat-value">{todaySessions.length}</div>
+                <div className="stat-label">Sessions</div>
+              </div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-icon accent">💰</div>
+              <div className="stat-content">
+                <div className="stat-value">
+                  {todayAdjustments.hasOT ? '+' : todayAdjustments.hasShort ? '-' : '0'}
+                </div>
+                <div className="stat-label">Adjustment</div>
+              </div>
+            </div>
           </div>
         </section>
 
         {/* Recent Sessions */}
         <section className="sessions-section">
           <div className="section-header">
-            <h3>Today's Sessions</h3>
-            <span className="session-count">{todaySessions.length}</span>
+            <h3 className="section-title">Today's Sessions</h3>
+            <div className="session-count-badge">
+              <span>{todaySessions.length}</span>
+            </div>
           </div>
 
           {todaySessions.length === 0 ? (
-            <div className="empty-sessions">
+            <div className="empty-state">
               <div className="empty-icon">🕒</div>
-              <p>No sessions today</p>
+              <h4 className="empty-title">No Sessions Today</h4>
+              <p className="empty-description">Clock in to start your first session</p>
             </div>
           ) : (
-            <div className="sessions-list-mobile">
+            <div className="sessions-list">
               {todaySessions.map((session, index) => (
-                <div key={session.id} className="session-item-mobile">
+                <div key={session.id} className="session-card">
                   <div className="session-header">
-                    <span className="session-number">Session #{todaySessions.length - index}</span>
+                    <div className="session-info">
+                      <h4 className="session-title">Session #{todaySessions.length - index}</h4>
+                      <div className="session-meta">
+                        <span className="session-date">{formatTime(session.clockIn)}</span>
+                        {session.isNightShift && <span className="night-badge">🌙 Night</span>}
+                        {session.crossMidnight && <span className="midnight-badge">⏰ Cross Midnight</span>}
+                      </div>
+                    </div>
                     <div className={`session-status ${session.status}`}>
                       {session.status}
-                      {session.crossMidnight && " 🌙"}
                     </div>
                   </div>
                   
-                  <div className="session-times-mobile">
+                  <div className="session-times">
                     <div className="time-entry">
-                      <span className="time-label">IN:</span>
-                      <span className="time-value">
-                        {formatTime(session.clockIn)}
-                        {session.isNightShift && " 🌙"}
-                      </span>
+                      <span className="time-label">Clock In</span>
+                      <span className="time-value">{formatTime(session.clockIn)}</span>
                     </div>
                     
                     {session.clockOut && (
                       <div className="time-entry">
-                        <span className="time-label">OUT:</span>
-                        <span className="time-value">
-                          {formatTime(session.clockOut)}
-                          {session.crossMidnight && " ⏰"}
-                        </span>
+                        <span className="time-label">Clock Out</span>
+                        <span className="time-value">{formatTime(session.clockOut)}</span>
                       </div>
                     )}
                   </div>
@@ -594,7 +905,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
                       }
                     </span>
                     {session.otHours > 0 && (
-                      <span className="ot-badge-mobile">
+                      <span className="ot-badge">
                         +{session.otHours.toFixed(1)}h OT
                       </span>
                     )}
@@ -606,13 +917,13 @@ export default function StaffDashboard({ staffData, onLogout }) {
         </section>
       </main>
 
-      {/* Bottom Navigation - Mobile Optimized */}
-      <nav className="mobile-bottom-nav">
+      {/* Enhanced Bottom Navigation */}
+      <nav className="bottom-navigation">
         <button 
           className={`nav-item ${isActiveRoute('/staff') ? 'active' : ''}`}
           onClick={() => safeNavigate('/staff')}
         >
-          <span className="nav-icon">📊</span>
+          <div className="nav-icon">📊</div>
           <span className="nav-label">Dashboard</span>
         </button>
         
@@ -620,7 +931,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
           className={`nav-item ${isActiveRoute('/staff/salary') ? 'active' : ''}`}
           onClick={() => safeNavigate('/staff/salary')}
         >
-          <span className="nav-icon">💰</span>
+          <div className="nav-icon">💰</div>
           <span className="nav-label">Salary</span>
         </button>
         
@@ -628,7 +939,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
           className={`nav-item ${isActiveRoute('/staff/advance') ? 'active' : ''}`}
           onClick={() => safeNavigate('/staff/advance')}
         >
-          <span className="nav-icon">📋</span>
+          <div className="nav-icon">📋</div>
           <span className="nav-label">Advance</span>
         </button>
         
@@ -636,11 +947,12 @@ export default function StaffDashboard({ staffData, onLogout }) {
           className={`nav-item ${isActiveRoute('/staff/availability') ? 'active' : ''}`}
           onClick={() => safeNavigate('/staff/availability')}
         >
-          <span className="nav-icon">📅</span>
-          <span className="nav-label">Availability</span>
+          <div className="nav-icon">📅</div>
+          <span className="nav-label">Schedule</span>
         </button>
-        <button className="nav-item logout-item" onClick={handleLogout}>
-          <span className="nav-icon">🚪</span>
+        
+        <button className="nav-item logout" onClick={handleLogout}>
+          <div className="nav-icon">🚪</div>
           <span className="nav-label">Logout</span>
         </button>
       </nav>
@@ -662,12 +974,27 @@ function LiveTimer({ startTime }) {
   const s = Math.floor((diff % (1000 * 60)) / 1000);
   
   return (
-    <div className="live-timer-mobile">
-      <span className="timer-digit">{String(h).padStart(2, "0")}</span>
-      <span className="timer-separator">:</span>
-      <span className="timer-digit">{String(m).padStart(2, "0")}</span>
-      <span className="timer-separator">:</span>
-      <span className="timer-digit">{String(s).padStart(2, "0")}</span>
+    <div className="live-timer">
+      <div className="timer-digits">
+        <span className="timer-digit">{String(h).padStart(2, "0")}</span>
+        <span className="timer-separator">:</span>
+        <span className="timer-digit">{String(m).padStart(2, "0")}</span>
+        <span className="timer-separator">:</span>
+        <span className="timer-digit">{String(s).padStart(2, "0")}</span>
+      </div>
+      <div className="timer-labels">
+        <span>Hours</span>
+        <span>Minutes</span>
+        <span>Seconds</span>
+      </div>
     </div>
   );
+}
+
+// Helper function for time-based greeting
+function getTimeOfDay() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Morning';
+  if (hour < 17) return 'Afternoon';
+  return 'Evening';
 }

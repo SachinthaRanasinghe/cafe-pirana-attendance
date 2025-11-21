@@ -15,13 +15,14 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 export default function RequestAdvance({ staffData, onLogout }) {
   const [amount, setAmount] = useState("");
-  const [reason, setReason] = useState("");
+  const [advanceDate, setAdvanceDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [salary, setSalary] = useState(null);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [requestHistory, setRequestHistory] = useState([]);
   const [approvedAdvances, setApprovedAdvances] = useState(0);
   const [remainingSalary, setRemainingSalary] = useState(0);
+  const [maxAllowedAdvance, setMaxAllowedAdvance] = useState(0);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,8 +50,12 @@ export default function RequestAdvance({ staffData, onLogout }) {
       if (docSnapshot.exists()) {
         const salaryData = docSnapshot.data();
         setSalary(salaryData);
+        // Calculate max allowed advance (50% of monthly salary)
+        const maxAllowed = salaryData.monthlySalary * 0.5;
+        setMaxAllowedAdvance(maxAllowed);
       } else {
         setSalary(null);
+        setMaxAllowedAdvance(0);
       }
     });
 
@@ -84,14 +89,21 @@ export default function RequestAdvance({ staffData, onLogout }) {
         setApprovedAdvances(totalAdvances);
         
         if (salary) {
-          setRemainingSalary(Math.max(0, salary.monthlySalary - totalAdvances));
+          const remaining = Math.max(0, maxAllowedAdvance - totalAdvances);
+          setRemainingSalary(remaining);
+          console.log('Salary Calculation:', {
+            monthlySalary: salary.monthlySalary,
+            maxAllowed: maxAllowedAdvance,
+            totalAdvances: totalAdvances,
+            remaining: remaining
+          });
         }
       } catch (error) {
         console.error("Error fetching approved advances:", error);
       }
     };
 
-    if (salary) {
+    if (salary && maxAllowedAdvance > 0) {
       fetchApprovedAdvances();
     }
     
@@ -102,14 +114,14 @@ export default function RequestAdvance({ staffData, onLogout }) {
         where("status", "==", "approved")
       ),
       () => {
-        if (salary) {
+        if (salary && maxAllowedAdvance > 0) {
           fetchApprovedAdvances();
         }
       }
     );
 
     return () => unsubscribe();
-  }, [uid, salary]);
+  }, [uid, salary, maxAllowedAdvance]);
 
   // Fetch advance requests
   useEffect(() => {
@@ -147,8 +159,31 @@ export default function RequestAdvance({ staffData, onLogout }) {
   // Calculate max advance based on current salary and remaining balance
   const calculateMaxAdvance = () => {
     if (!salary || !salary.monthlySalary) return 0;
-    const fiftyPercent = salary.monthlySalary * 0.5;
-    return Math.min(fiftyPercent, remainingSalary);
+    return Math.min(maxAllowedAdvance - approvedAdvances, remainingSalary);
+  };
+
+  // Get minimum date (today)
+  const getMinDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
+  // Get maximum date (30 days from now)
+  const getMaxDate = () => {
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + 30);
+    return maxDate.toISOString().split('T')[0];
+  };
+
+  // Format date for display
+  const formatDateDisplay = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   // Submit advance request with shiftMonth
@@ -157,6 +192,7 @@ export default function RequestAdvance({ staffData, onLogout }) {
     
     const validations = {
       hasAmount: !!amount && !isNaN(amount) && amount > 0,
+      hasDate: !!advanceDate,
       hasSalary: !!salary,
       hasStaffData: !!staffName && !!staffId && !!uid,
       noPendingRequests: pendingRequests.length === 0,
@@ -168,13 +204,18 @@ export default function RequestAdvance({ staffData, onLogout }) {
       return;
     }
 
+    if (!validations.hasDate) {
+      showNotification("Please select when you need the advance", "error");
+      return;
+    }
+
     if (!validations.hasSalary) {
       showNotification("Your salary is not set. Please contact administration.", "error");
       return;
     }
 
     if (!validations.hasRemainingSalary) {
-      showNotification("No remaining salary available for advance this month.", "error");
+      showNotification(`No remaining advance available this month. You've already used Rs. ${approvedAdvances.toLocaleString()} of your Rs. ${maxAllowedAdvance.toLocaleString()} limit.`, "error");
       return;
     }
 
@@ -182,7 +223,7 @@ export default function RequestAdvance({ staffData, onLogout }) {
     const maxAdvance = calculateMaxAdvance();
 
     if (advanceAmount > maxAdvance) {
-      showNotification(`Maximum advance amount is Rs. ${maxAdvance.toLocaleString()} (50% of salary or remaining balance)`, "error");
+      showNotification(`Maximum advance amount is Rs. ${maxAdvance.toLocaleString()} (remaining of your Rs. ${maxAllowedAdvance.toLocaleString()} monthly limit)`, "error");
       return;
     }
 
@@ -201,36 +242,59 @@ export default function RequestAdvance({ staffData, onLogout }) {
       return;
     }
     
+    // Final validation: Check if this request would exceed the 50% limit
+    const totalAfterThisRequest = approvedAdvances + advanceAmount;
+    if (totalAfterThisRequest > maxAllowedAdvance) {
+      showNotification(`This request would exceed your monthly advance limit of Rs. ${maxAllowedAdvance.toLocaleString()}. Maximum you can request now is Rs. ${maxAdvance.toLocaleString()}`, "error");
+      return;
+    }
+    
     setLoading(true);
     try {
       const currentDate = new Date();
+      const selectedDate = new Date(advanceDate);
+      
       const advanceRequest = {
         staffUid: uid,
         staffName: staffName,
         staffId: staffId,
         amount: advanceAmount,
         requestDate: currentDate.toISOString(),
-        reason: reason.trim() || "No reason provided",
+        advanceNeededDate: advanceDate,
+        advanceNeededDateFormatted: formatDateDisplay(advanceDate),
         status: "pending",
         month: currentDate.toISOString().substring(0, 7),
         shiftMonth: getShiftMonth(currentDate),
-        maxAllowed: maxAdvance,
+        maxAllowed: maxAllowedAdvance,
         currentSalary: salary.monthlySalary,
         hourlyRate: salary.hourlyRate,
-        remainingSalaryBefore: remainingSalary
+        remainingSalaryBefore: remainingSalary,
+        approvedAdvancesSoFar: approvedAdvances,
+        urgency: getUrgencyLevel(selectedDate)
       };
       
       await addDoc(collection(db, "advanceRequests"), advanceRequest);
       
       showNotification("Advance request submitted successfully!", "success");
       setAmount("");
-      setReason("");
+      setAdvanceDate("");
     } catch (error) {
       console.error("Error submitting advance request:", error);
       showNotification("Error submitting request: " + error.message, "error");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Determine urgency level based on date
+  const getUrgencyLevel = (selectedDate) => {
+    const today = new Date();
+    const timeDiff = selectedDate.getTime() - today.getTime();
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    if (daysDiff <= 3) return "high";
+    if (daysDiff <= 7) return "medium";
+    return "low";
   };
 
   const showNotification = (msg, type = "info") => {
@@ -258,6 +322,12 @@ export default function RequestAdvance({ staffData, onLogout }) {
     const advanceAmount = parseFloat(amount);
     const maxAdvance = calculateMaxAdvance();
     return Math.min((advanceAmount / maxAdvance) * 100, 100);
+  };
+
+  // Calculate usage percentage of monthly limit
+  const getMonthlyLimitPercentage = () => {
+    if (!maxAllowedAdvance) return 0;
+    return Math.min((approvedAdvances / maxAllowedAdvance) * 100, 100);
   };
 
   if (!staffData) {
@@ -327,6 +397,33 @@ export default function RequestAdvance({ staffData, onLogout }) {
           </div>
         ) : (
           <>
+            {/* Monthly Limit Progress */}
+            <section className="limit-section">
+              <div className="limit-card-mobile">
+                <div className="limit-header-mobile">
+                  <h3>Monthly Advance Limit</h3>
+                  <div className="limit-badge">
+                    {maxAllowedAdvance.toLocaleString()}
+                  </div>
+                </div>
+                <div className="limit-progress-mobile">
+                  <div className="progress-header-mobile">
+                    <span>Used: Rs. {approvedAdvances.toLocaleString()}</span>
+                    <span>Remaining: Rs. {remainingSalary.toLocaleString()}</span>
+                  </div>
+                  <div className="progress-bar-mobile limit">
+                    <div 
+                      className="progress-fill-mobile warning"
+                      style={{ width: `${getMonthlyLimitPercentage()}%` }}
+                    ></div>
+                  </div>
+                  <div className="progress-text-mobile">
+                    {getMonthlyLimitPercentage().toFixed(1)}% of monthly limit used
+                  </div>
+                </div>
+              </div>
+            </section>
+
             {/* Quick Stats */}
             <section className="quick-stats-advance">
               <div className="stat-item-advance">
@@ -379,10 +476,11 @@ export default function RequestAdvance({ staffData, onLogout }) {
                           <span>Rs. {pendingRequests[0]?.amount?.toLocaleString() || '0'}</span>
                         </div>
                         <div className="detail-item">
-                          <span>Requested:</span>
+                          <span>Needed By:</span>
                           <span>
-                            {pendingRequests[0]?.requestDate ? 
-                              new Date(pendingRequests[0].requestDate).toLocaleDateString() : 'Unknown'}
+                            {pendingRequests[0]?.advanceNeededDateFormatted || 
+                              (pendingRequests[0]?.advanceNeededDate ? 
+                                formatDateDisplay(pendingRequests[0].advanceNeededDate) : 'Not specified')}
                           </span>
                         </div>
                       </div>
@@ -395,7 +493,8 @@ export default function RequestAdvance({ staffData, onLogout }) {
                       <h3>Limit Reached</h3>
                     </div>
                     <div className="warning-content">
-                      <p>Maximum advance reached for this month.</p>
+                      <p>You have reached your monthly advance limit of Rs. {maxAllowedAdvance.toLocaleString()}</p>
+                      <p className="warning-note">Wait until next month to request more advances.</p>
                     </div>
                   </div>
                 ) : (
@@ -417,7 +516,7 @@ export default function RequestAdvance({ staffData, onLogout }) {
                         required
                       />
                       <div className="form-hint-mobile">
-                        Max: Rs. {calculateMaxAdvance().toLocaleString()}
+                        Max: Rs. {calculateMaxAdvance().toLocaleString()} (remaining of Rs. {maxAllowedAdvance.toLocaleString()} monthly limit)
                       </div>
                       
                       {amount && !isNaN(amount) && amount > 0 && (
@@ -429,24 +528,44 @@ export default function RequestAdvance({ staffData, onLogout }) {
                             ></div>
                           </div>
                           <div className="progress-text-mobile">
-                            {getAdvancePercentage().toFixed(1)}% of maximum
+                            {getAdvancePercentage().toFixed(1)}% of remaining limit
                           </div>
                         </div>
                       )}
                     </div>
 
                     <div className="form-group-mobile">
-                      <label htmlFor="reason" className="form-label-mobile">
-                        Reason <span className="optional">(Optional)</span>
+                      <label htmlFor="advanceDate" className="form-label-mobile">
+                        When do you need this advance? *
                       </label>
-                      <textarea
-                        id="reason"
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                        placeholder="Why do you need this advance?"
-                        className="form-textarea-mobile"
-                        rows="3"
+                      <input
+                        id="advanceDate"
+                        type="date"
+                        value={advanceDate}
+                        onChange={(e) => setAdvanceDate(e.target.value)}
+                        className="form-input-mobile"
+                        min={getMinDate()}
+                        max={getMaxDate()}
+                        required
                       />
+                      <div className="form-hint-mobile">
+                        Select a date within the next 30 days
+                      </div>
+                      
+                      {advanceDate && (
+                        <div className="date-preview-mobile">
+                          <span className="date-icon">📅</span>
+                          <span className="date-text">
+                            Needed by: {formatDateDisplay(advanceDate)}
+                          </span>
+                          {getUrgencyLevel(new Date(advanceDate)) === 'high' && (
+                            <span className="urgency-badge high">Urgent</span>
+                          )}
+                          {getUrgencyLevel(new Date(advanceDate)) === 'medium' && (
+                            <span className="urgency-badge medium">Soon</span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="advance-summary-mobile">
@@ -458,12 +577,18 @@ export default function RequestAdvance({ staffData, onLogout }) {
                         <span>Remaining After:</span>
                         <span>Rs. {amount ? (remainingSalary - parseFloat(amount)).toLocaleString() : remainingSalary.toLocaleString()}</span>
                       </div>
+                      {advanceDate && (
+                        <div className="summary-item-mobile">
+                          <span>Needed By:</span>
+                          <span>{formatDateDisplay(advanceDate)}</span>
+                        </div>
+                      )}
                     </div>
 
                     <button 
                       type="submit" 
                       className="btn-submit-advance"
-                      disabled={loading || !amount || !uid || remainingSalary <= 0}
+                      disabled={loading || !amount || !advanceDate || !uid || remainingSalary <= 0}
                     >
                       <span className="btn-icon">📋</span>
                       <span className="btn-text">
@@ -508,9 +633,12 @@ export default function RequestAdvance({ staffData, onLogout }) {
                             new Date(request.requestDate).toLocaleDateString() : 'Unknown date'}
                         </div>
                         
-                        {request.reason && request.reason !== "No reason provided" && (
-                          <div className="history-reason-mobile">
-                            {request.reason}
+                        {request.advanceNeededDateFormatted && (
+                          <div className="history-needed-date-mobile">
+                            <span className="date-icon-small">📅</span>
+                            Needed by: {request.advanceNeededDateFormatted}
+                            {request.urgency === 'high' && <span className="urgency-dot high"></span>}
+                            {request.urgency === 'medium' && <span className="urgency-dot medium"></span>}
                           </div>
                         )}
                         

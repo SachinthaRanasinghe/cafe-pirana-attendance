@@ -6,7 +6,9 @@ import {
   doc, 
   setDoc,
   query,
-  where
+  where,
+  addDoc,
+  getDocs
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import "./StaffAvailability.css";
@@ -16,6 +18,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
   const [availabilities, setAvailabilities] = useState({});
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [currentWeek, setCurrentWeek] = useState("");
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,21 +37,48 @@ export default function StaffAvailability({ staffData, onLogout }) {
     }
   }
 
-  // Fetch existing availabilities
-  useEffect(() => {
-    if (!uid) return;
+  // Get current week start date (Monday)
+  const getCurrentWeekStart = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
+    const monday = new Date(today.setDate(diff));
+    return monday.toISOString().split('T')[0]; // YYYY-MM-DD
+  };
 
-    const q = query(
-      collection(db, "availabilities"),
-      where("staffUid", "==", uid)
+  // Check if it's a new week and reset if needed
+  const checkAndResetForNewWeek = async () => {
+    const weekStart = getCurrentWeekStart();
+    setCurrentWeek(weekStart);
+
+    // Check if we already have availability for this week
+    const weeklyAvailabilityQuery = query(
+      collection(db, "weeklyAvailability"),
+      where("staffUid", "==", uid),
+      where("weekStartDate", "==", weekStart)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const docData = snapshot.docs[0].data();
-        setAvailabilities(docData.availabilities || {});
-      } else {
-        // Initialize empty availabilities
+    const snapshot = await getDocs(weeklyAvailabilityQuery);
+    
+    if (snapshot.empty) {
+      // It's a new week, archive current availability if it exists
+      const currentAvailabilityQuery = query(
+        collection(db, "availabilities"),
+        where("staffUid", "==", uid)
+      );
+      
+      const currentSnapshot = await getDocs(currentAvailabilityQuery);
+      if (!currentSnapshot.empty) {
+        const currentData = currentSnapshot.docs[0].data();
+        
+        // Archive the previous week's availability
+        await addDoc(collection(db, "weeklyAvailability"), {
+          ...currentData,
+          weekStartDate: getPreviousWeekStart(),
+          archivedAt: new Date().toISOString()
+        });
+
+        // Reset availability for new week
         const emptyAvailabilities = {};
         days.forEach(day => {
           emptyAvailabilities[day] = {
@@ -58,11 +88,66 @@ export default function StaffAvailability({ staffData, onLogout }) {
             breaks: []
           };
         });
+        
         setAvailabilities(emptyAvailabilities);
+        
+        // Update current availability
+        await setDoc(doc(db, "availabilities", uid), {
+          staffUid: uid,
+          staffName: staffName,
+          staffId: staffId,
+          availabilities: emptyAvailabilities,
+          lastUpdated: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          currentWeek: weekStart
+        });
       }
-    });
+    }
+  };
 
-    return () => unsubscribe();
+  const getPreviousWeekStart = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) - 7;
+    const previousMonday = new Date(today.setDate(diff));
+    return previousMonday.toISOString().split('T')[0];
+  };
+
+  // Fetch existing availabilities and check for week reset
+  useEffect(() => {
+    if (!uid) return;
+
+    const initializeAvailability = async () => {
+      await checkAndResetForNewWeek();
+
+      const q = query(
+        collection(db, "availabilities"),
+        where("staffUid", "==", uid)
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const docData = snapshot.docs[0].data();
+          setAvailabilities(docData.availabilities || {});
+        } else {
+          // Initialize empty availabilities
+          const emptyAvailabilities = {};
+          days.forEach(day => {
+            emptyAvailabilities[day] = {
+              available: false,
+              startTime: "09:00",
+              endTime: "17:00",
+              breaks: []
+            };
+          });
+          setAvailabilities(emptyAvailabilities);
+        }
+      });
+
+      return () => unsubscribe();
+    };
+
+    initializeAvailability();
   }, [uid]);
 
   const handleAvailabilityChange = (day, field, value) => {
@@ -122,16 +207,27 @@ export default function StaffAvailability({ staffData, onLogout }) {
 
     setLoading(true);
     try {
+      const weekStart = getCurrentWeekStart();
+      
       const availabilityDoc = {
         staffUid: uid,
         staffName: staffName,
         staffId: staffId,
         availabilities: availabilities,
         lastUpdated: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        currentWeek: weekStart
       };
 
+      // Save to current availability
       await setDoc(doc(db, "availabilities", uid), availabilityDoc);
+      
+      // Also save to weekly records for history
+      await addDoc(collection(db, "weeklyAvailability"), {
+        ...availabilityDoc,
+        weekStartDate: weekStart,
+        savedAt: new Date().toISOString()
+      });
       
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -206,6 +302,9 @@ export default function StaffAvailability({ staffData, onLogout }) {
         <div className="user-info-mobile">
           <span className="user-name">{staffName}</span>
           <span className="user-id">ID: {staffId}</span>
+          <div className="week-indicator">
+            Week: {currentWeek ? new Date(currentWeek).toLocaleDateString() : 'Loading...'}
+          </div>
         </div>
       </header>
 
@@ -223,6 +322,25 @@ export default function StaffAvailability({ staffData, onLogout }) {
               month: 'short', 
               day: 'numeric' 
             })}
+          </div>
+        </section>
+
+        {/* Week Info Card */}
+        <section className="section-mobile">
+          <div className="info-card-mobile">
+            <div className="info-header-mobile">
+              <span className="info-icon">📅</span>
+              <h4>Weekly Availability</h4>
+            </div>
+            <div className="info-content-mobile">
+              <p>
+                Your availability automatically resets every Monday. 
+                Changes are saved weekly for reporting purposes.
+              </p>
+              <div className="week-info-mobile">
+                <strong>Current Week:</strong> {currentWeek ? new Date(currentWeek).toLocaleDateString() : 'Loading...'}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -279,7 +397,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
             {saved && (
               <div className="save-indicator-mobile success">
                 <span className="save-icon">✅</span>
-                Availability saved successfully!
+                Availability saved successfully for this week!
               </div>
             )}
           </div>
@@ -427,6 +545,12 @@ export default function StaffAvailability({ staffData, onLogout }) {
                   </span>
                 </div>
                 <div className="stat-item-mobile">
+                  <span className="stat-label">Current Week:</span>
+                  <span className="stat-value">
+                    {currentWeek ? new Date(currentWeek).toLocaleDateString() : 'Loading...'}
+                  </span>
+                </div>
+                <div className="stat-item-mobile">
                   <span className="stat-label">Last Updated:</span>
                   <span className="stat-value">
                     {new Date().toLocaleDateString()}
@@ -435,7 +559,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
               </div>
               <div className="summary-note-mobile">
                 <span className="note-icon">💡</span>
-                <p>Your availability helps management schedule shifts effectively. Please keep this updated.</p>
+                <p>Your availability is saved weekly and automatically resets every Monday for accurate monthly reporting.</p>
               </div>
             </div>
           </div>

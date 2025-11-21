@@ -13,11 +13,16 @@ import "./OTApprovals.css";
 import { useNavigate, useLocation } from "react-router-dom";
 
 export default function OTApprovals({ onLogout }) {
-  const [otRequests, setOtRequests] = useState([]);
+  const [adjustmentRequests, setAdjustmentRequests] = useState([]);
+  const [salaries, setSalaries] = useState({}); // Add salaries state
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("pending");
   const [activeTab, setActiveTab] = useState("requests");
   const [searchTerm, setSearchTerm] = useState("");
+  const [requestType, setRequestType] = useState("all");
+  const [editingRequest, setEditingRequest] = useState(null);
+  const [editedHours, setEditedHours] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,22 +31,28 @@ export default function OTApprovals({ onLogout }) {
   const formatHours = (hours) => {
     if (!hours && hours !== 0) return "0h";
     
-    // Round to 2 decimal places and remove trailing zeros
     const rounded = Math.round(hours * 100) / 100;
-    
-    // If it's a whole number, show without decimals
     if (rounded % 1 === 0) {
       return `${rounded}h`;
     }
-    
-    // Otherwise show with 1 decimal place
     return `${rounded.toFixed(1)}h`;
   };
 
-  // Fetch OT requests
+  // Calculate amount based on hours and staff-specific rate
+  const calculateAmount = (hours, staffUid) => {
+    const staffOtRate = salaries[staffUid]?.otRate || 200;
+    return Math.round(hours * staffOtRate);
+  };
+
+  // Get OT rate for a staff member
+  const getOtRate = (staffUid) => {
+    return salaries[staffUid]?.otRate || 200;
+  };
+
+  // Fetch adjustment requests
   useEffect(() => {
     const q = query(
-      collection(db, "otRequests"), 
+      collection(db, "adjustmentRequests"), 
       orderBy("requestedAt", "desc")
     );
     
@@ -50,78 +61,167 @@ export default function OTApprovals({ onLogout }) {
       snapshot.forEach((doc) => {
         requests.push({ id: doc.id, ...doc.data() });
       });
-      setOtRequests(requests);
+      setAdjustmentRequests(requests);
     });
 
     return () => unsubscribe();
   }, []);
 
+  // Fetch salaries to get staff-specific OT rates
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "salaries"), (snapshot) => {
+      const salaryData = {};
+      snapshot.forEach((doc) => {
+        salaryData[doc.id] = doc.data();
+      });
+      setSalaries(salaryData);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Start editing a request
+  const startEditing = (request) => {
+    setEditingRequest(request);
+    setEditedHours(request.adjustmentHours?.toString() || "");
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingRequest(null);
+    setEditedHours("");
+  };
+
+  // Save edited hours - UPDATED to use staff-specific rates
+  const saveEditedHours = async () => {
+    if (!editingRequest || !editedHours || isNaN(editedHours) || parseFloat(editedHours) <= 0) {
+      showNotification("Please enter valid hours", "error");
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const newHours = parseFloat(editedHours);
+      const staffOtRate = getOtRate(editingRequest.staffUid);
+      const newAmount = calculateAmount(newHours, editingRequest.staffUid);
+      const isOT = editingRequest.adjustmentType === 'overtime';
+
+      await updateDoc(doc(db, "adjustmentRequests", editingRequest.id), {
+        adjustmentHours: newHours,
+        adjustmentAmount: newAmount,
+        adminEdited: true,
+        originalHours: editingRequest.adjustmentHours,
+        originalAmount: editingRequest.adjustmentAmount,
+        editedAt: new Date().toISOString(),
+        editedBy: "admin",
+        staffOtRate: staffOtRate // Store the rate used
+      });
+
+      showNotification(
+        `✅ ${isOT ? 'OT' : 'Short Time'} hours updated from ${formatHours(editingRequest.adjustmentHours)} to ${formatHours(newHours)}. ` +
+        `Amount: ${isOT ? '+' : '-'}Rs. ${newAmount} (Rate: Rs. ${staffOtRate}/hour)`,
+        "success"
+      );
+      
+      setEditingRequest(null);
+      setEditedHours("");
+    } catch (error) {
+      console.error("Error updating hours:", error);
+      showNotification("❌ Error updating hours: " + error.message, "error");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const handleApprove = async (request) => {
-    if (!window.confirm(`Approve ${formatHours(request.otHours)} OT for ${request.staffName}? Amount: Rs. ${request.otAmount}`)) return;
+    const isOT = request.adjustmentType === 'overtime';
+    const amount = Math.abs(request.adjustmentAmount || 0);
+    const hours = request.adjustmentHours || 0;
+    const staffOtRate = getOtRate(request.staffUid);
+    
+    if (!window.confirm(
+      `${isOT ? 'Approve' : 'Confirm'} ${formatHours(hours)} ${isOT ? 'OT' : 'Short Time'} for ${request.staffName}? ` +
+      `${isOT ? 'Amount: +Rs.' : 'Deduction: -Rs.'} ${amount} (Rate: Rs. ${staffOtRate}/hour)`
+    )) return;
     
     setLoading(true);
     try {
-      await updateDoc(doc(db, "otRequests", request.id), {
+      await updateDoc(doc(db, "adjustmentRequests", request.id), {
         status: "approved",
         approvedBy: "admin",
-        approvedAt: new Date().toISOString()
+        approvedAt: new Date().toISOString(),
+        staffOtRate: staffOtRate // Store the rate used for approval
       });
       
-      showNotification(`✅ OT approved for ${request.staffName}`, "success");
+      showNotification(`✅ ${isOT ? 'OT' : 'Short Time'} approved for ${request.staffName} (Rate: Rs. ${staffOtRate}/hour)`, "success");
     } catch (error) {
-      console.error("Error approving OT:", error);
-      showNotification("❌ Error approving OT: " + error.message, "error");
+      console.error("Error approving adjustment:", error);
+      showNotification("❌ Error approving request: " + error.message, "error");
     } finally {
       setLoading(false);
     }
   };
 
   const handleReject = async (request) => {
+    const isOT = request.adjustmentType === 'overtime';
     const reason = prompt("Enter rejection reason:");
     if (!reason) return;
     
     setLoading(true);
     try {
-      await updateDoc(doc(db, "otRequests", request.id), {
+      await updateDoc(doc(db, "adjustmentRequests", request.id), {
         status: "rejected",
         approvedBy: "admin",
         approvedAt: new Date().toISOString(),
         rejectionReason: reason
       });
       
-      showNotification(`❌ OT rejected for ${request.staffName}`, "info");
+      showNotification(`❌ ${isOT ? 'OT' : 'Short Time'} rejected for ${request.staffName}`, "info");
     } catch (error) {
-      console.error("Error rejecting OT:", error);
-      showNotification("❌ Error rejecting OT: " + error.message, "error");
+      console.error("Error rejecting adjustment:", error);
+      showNotification("❌ Error rejecting request: " + error.message, "error");
     } finally {
       setLoading(false);
     }
   };
 
   const showNotification = (msg, type = "info") => {
-    // For mobile, we'll use alert but with emoji indicators
     alert(msg);
   };
 
-  const filteredRequests = otRequests.filter(request => {
+  const filteredRequests = adjustmentRequests.filter(request => {
     const matchesFilter = filter === "all" ? true : request.status === filter;
     const matchesSearch = request.staffName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          request.staffId?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
+    const matchesType = requestType === "all" ? true : request.adjustmentType === requestType;
+    
+    return matchesFilter && matchesSearch && matchesType;
   });
 
   // Calculate stats with formatted hours
   const stats = {
-    pending: otRequests.filter(r => r.status === "pending").length,
-    approved: otRequests.filter(r => r.status === "approved").length,
-    rejected: otRequests.filter(r => r.status === "rejected").length,
-    totalOTHours: otRequests.filter(r => r.status === "approved").reduce((sum, r) => sum + (r.otHours || 0), 0),
-    totalOTAmount: otRequests.filter(r => r.status === "approved").reduce((sum, r) => sum + (r.otAmount || 0), 0),
-    nightShifts: otRequests.filter(r => r.isNightShift).length
+    pending: adjustmentRequests.filter(r => r.status === "pending").length,
+    approved: adjustmentRequests.filter(r => r.status === "approved").length,
+    rejected: adjustmentRequests.filter(r => r.status === "rejected").length,
+    totalOTHours: adjustmentRequests
+      .filter(r => r.status === "approved" && r.adjustmentType === "overtime")
+      .reduce((sum, r) => sum + (r.adjustmentHours || 0), 0),
+    totalOTAmount: adjustmentRequests
+      .filter(r => r.status === "approved" && r.adjustmentType === "overtime")
+      .reduce((sum, r) => sum + (r.adjustmentAmount || 0), 0),
+    totalShortHours: adjustmentRequests
+      .filter(r => r.status === "approved" && r.adjustmentType === "short_time")
+      .reduce((sum, r) => sum + (r.adjustmentHours || 0), 0),
+    totalShortAmount: adjustmentRequests
+      .filter(r => r.status === "approved" && r.adjustmentType === "short_time")
+      .reduce((sum, r) => sum + (r.adjustmentAmount || 0), 0),
+    overtimeRequests: adjustmentRequests.filter(r => r.adjustmentType === "overtime").length,
+    shortTimeRequests: adjustmentRequests.filter(r => r.adjustmentType === "short_time").length
   };
 
-  // Format total OT hours for display
-  const formattedTotalHours = formatHours(stats.totalOTHours);
+  // Format total hours for display
+  const formattedOTHours = formatHours(stats.totalOTHours);
+  const formattedShortHours = formatHours(stats.totalShortHours);
 
   const isActiveRoute = (path) => location.pathname === path;
 
@@ -143,7 +243,7 @@ export default function OTApprovals({ onLogout }) {
             <div className="brand-icon">🏪</div>
             <div className="brand-text">
               <h1>Cafe Piranha</h1>
-              <span>OT Approvals</span>
+              <span>Time Adjustments</span>
             </div>
           </div>
           
@@ -161,8 +261,8 @@ export default function OTApprovals({ onLogout }) {
         {/* Welcome Section */}
         <section className="welcome-section">
           <div className="welcome-content">
-            <h2>OT Approvals</h2>
-            <p>Manage staff overtime requests</p>
+            <h2>Time Adjustments</h2>
+            <p>Manage overtime & short time requests with staff-specific rates</p>
           </div>
           <div className="date-display-mobile">
             {new Date().toLocaleDateString('en-US', { 
@@ -185,26 +285,26 @@ export default function OTApprovals({ onLogout }) {
             </div>
             
             <div className="stat-card-mobile">
-              <div className="stat-icon-mobile success">✅</div>
+              <div className="stat-icon-mobile success">🔼</div>
               <div className="stat-content-mobile">
-                <div className="stat-value">{stats.approved}</div>
-                <div className="stat-label">Approved</div>
+                <div className="stat-value">{stats.overtimeRequests}</div>
+                <div className="stat-label">OT Requests</div>
               </div>
             </div>
             
             <div className="stat-card-mobile">
-              <div className="stat-icon-mobile accent">🕒</div>
+              <div className="stat-icon-mobile warning">🔽</div>
               <div className="stat-content-mobile">
-                <div className="stat-value">{formattedTotalHours}</div>
-                <div className="stat-label">OT Hours</div>
+                <div className="stat-value">{stats.shortTimeRequests}</div>
+                <div className="stat-label">Short Time</div>
               </div>
             </div>
             
             <div className="stat-card-mobile highlight">
-              <div className="stat-icon-mobile warning">💰</div>
+              <div className="stat-icon-mobile accent">💰</div>
               <div className="stat-content-mobile">
-                <div className="stat-value">Rs. {Math.round(stats.totalOTAmount / 1000)}k</div>
-                <div className="stat-label">Total OT</div>
+                <div className="stat-value">Rs. {Math.round((stats.totalOTAmount - stats.totalShortAmount) / 1000)}k</div>
+                <div className="stat-label">Net Adjust</div>
               </div>
             </div>
           </div>
@@ -262,50 +362,69 @@ export default function OTApprovals({ onLogout }) {
                 {filter === "approved" && "✅ Approved"}
                 {filter === "rejected" && "❌ Rejected"}
                 {filter === "all" && "📋 All"}
+                {requestType === "overtime" && " 🕒 OT"}
+                {requestType === "short_time" && " ⏰ Short"}
               </div>
             </div>
-            <select 
-              value={filter} 
-              onChange={(e) => setFilter(e.target.value)} 
-              className="filter-select-mobile"
-            >
-              <option value="pending">⏳ Pending OT</option>
-              <option value="approved">✅ Approved OT</option>
-              <option value="rejected">❌ Rejected OT</option>
-              <option value="all">📋 All OT</option>
-            </select>
+            
+            <div className="filter-controls-mobile">
+              <select 
+                value={filter} 
+                onChange={(e) => setFilter(e.target.value)} 
+                className="filter-select-mobile"
+              >
+                <option value="pending">⏳ Pending</option>
+                <option value="approved">✅ Approved</option>
+                <option value="rejected">❌ Rejected</option>
+                <option value="all">📋 All Status</option>
+              </select>
+              
+              <select 
+                value={requestType} 
+                onChange={(e) => setRequestType(e.target.value)} 
+                className="filter-select-mobile"
+              >
+                <option value="all">📋 All Types</option>
+                <option value="overtime">🕒 Overtime</option>
+                <option value="short_time">⏰ Short Time</option>
+              </select>
+            </div>
           </div>
         </section>
 
-        {/* OT Requests List */}
+        {/* Adjustment Requests List */}
         {activeTab === "requests" && (
           <section className="section-mobile">
             <div className="section-header-mobile">
-              <h3>Overtime Requests</h3>
+              <h3>Adjustment Requests</h3>
               <span className="badge-mobile">{filteredRequests.length}</span>
             </div>
             
             {filteredRequests.length === 0 ? (
               <div className="empty-state-mobile">
                 <div className="empty-icon">🕒</div>
-                <h4>No OT Requests</h4>
+                <h4>No Requests Found</h4>
                 <p>
                   {searchTerm ? 
-                    "No matching OT requests found" : 
-                    `No ${filter !== "all" ? filter : ""} overtime requests`
+                    "No matching requests found" : 
+                    `No ${filter !== "all" ? filter : ""} ${requestType !== "all" ? requestType : ""} requests`
                   }
                 </p>
               </div>
             ) : (
               <div className="requests-list-mobile">
                 {filteredRequests.map(request => {
-                  // Format hours for this specific request
-                  const regularHours = formatHours(request.regularHours || 0);
-                  const otHours = formatHours(request.otHours || 0);
-                  const totalHours = formatHours((request.regularHours || 0) + (request.otHours || 0));
+                  const isOT = request.adjustmentType === 'overtime';
+                  const adjustmentHours = request.adjustmentHours || 0;
+                  const adjustmentAmount = request.adjustmentAmount || 0;
+                  const totalHours = request.totalHours || 0;
+                  const regularHours = request.regularHours || Math.min(totalHours, 12);
+                  const isEditing = editingRequest?.id === request.id;
+                  const staffOtRate = getOtRate(request.staffUid);
+                  const displayRate = request.staffOtRate || staffOtRate;
                   
                   return (
-                    <div key={request.id} className={`request-item-mobile ${request.status}`}>
+                    <div key={request.id} className={`request-item-mobile ${request.status} ${isOT ? 'overtime' : 'short-time'} ${isEditing ? 'editing' : ''}`}>
                       <div className="request-header-mobile">
                         <div className="staff-info-mobile">
                           <div className="staff-avatar-mobile">
@@ -314,64 +433,107 @@ export default function OTApprovals({ onLogout }) {
                           <div className="staff-details-mobile">
                             <h4>{request.staffName}</h4>
                             <span className="staff-id">ID: {request.staffId}</span>
+                            <span className="request-date">{request.date}</span>
+                            <span className="ot-rate-display">
+                              OT Rate: Rs. {displayRate}/hour
+                            </span>
+                            {request.adminEdited && (
+                              <span className="edited-badge">✏️ Admin Edited</span>
+                            )}
                           </div>
                         </div>
-                        <div className={`status-badge-mobile ${request.status}`}>
-                          {request.status === "pending" && "⏳ Pending"}
-                          {request.status === "approved" && "✅ Approved"}
-                          {request.status === "rejected" && "❌ Rejected"}
+                        <div className={`status-badge-mobile ${request.status} ${isOT ? 'overtime-badge' : 'short-time-badge'}`}>
+                          {isOT ? '🕒 OT' : '⏰ Short'} • {request.status === "pending" && "⏳"}
+                          {request.status === "approved" && "✅"}
+                          {request.status === "rejected" && "❌"}
                         </div>
                       </div>
 
                       <div className="request-details-mobile">
-                        {/* Date and Shift Info */}
-                        <div className="date-shift-info">
-                          <span className="date-value">
-                            {request.date}
-                            {request.isNightShift && " 🌙"}
-                            {request.crossMidnight && " ⏰"}
-                          </span>
-                        </div>
-
-                        {/* Hours Breakdown */}
-                        <div className="hours-breakdown-mobile">
-                          <div className="hours-grid-mobile">
-                            <div className="hours-item-mobile">
-                              <span className="hours-label">Regular</span>
-                              <span className="hours-value">{regularHours}</span>
-                            </div>
-                            <div className="hours-item-mobile highlight">
-                              <span className="hours-label">OT Hours</span>
-                              <span className="hours-value ot-highlight">{otHours}</span>
-                            </div>
-                            <div className="hours-item-mobile total">
-                              <span className="hours-label">Total</span>
-                              <span className="hours-value">{totalHours}</span>
-                            </div>
+                        {/* Hours Summary */}
+                        <div className="hours-summary-mobile">
+                          <div className="summary-row">
+                            <span className="summary-label">Total Worked:</span>
+                            <span className="summary-value">{formatHours(totalHours)}</span>
                           </div>
+                          <div className="summary-row">
+                            <span className="summary-label">Regular Hours:</span>
+                            <span className="summary-value">{formatHours(regularHours)}</span>
+                          </div>
+                          
+                          {/* Editable Hours Section */}
+                          {isEditing ? (
+                            <div className="edit-hours-section-mobile">
+                              <div className="edit-row">
+                                <span className="edit-label">
+                                  {isOT ? 'Overtime:' : 'Short Time:'}
+                                </span>
+                                <div className="edit-controls">
+                                  <input
+                                    type="number"
+                                    value={editedHours}
+                                    onChange={(e) => setEditedHours(e.target.value)}
+                                    className="hours-input-mobile"
+                                    step="0.5"
+                                    min="0.5"
+                                    max={isOT ? "24" : "12"}
+                                    placeholder="Enter hours"
+                                  />
+                                  <span className="hours-unit">hours</span>
+                                </div>
+                              </div>
+                              <div className="calculated-amount-mobile">
+                                <span className="amount-label">Calculated Amount:</span>
+                                <span className={`amount-value ${isOT ? 'positive' : 'negative'}`}>
+                                  {isOT ? '+' : '-'}Rs. {calculateAmount(parseFloat(editedHours) || 0, request.staffUid).toLocaleString()}
+                                </span>
+                                <span className="rate-display">@ Rs. {staffOtRate}/hour</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="summary-row highlight">
+                              <span className="summary-label">
+                                {isOT ? 'Overtime:' : 'Short Time:'}
+                              </span>
+                              <span className={`summary-value ${isOT ? 'positive' : 'negative'}`}>
+                                {isOT ? '+' : '-'}{formatHours(adjustmentHours)}
+                                {request.adminEdited && " ✏️"}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Amount Section */}
-                        <div className="amount-section-mobile">
-                          <div className="amount-display-mobile">
-                            <span className="amount-label">OT Amount</span>
-                            <span className="amount-value">Rs. {request.otAmount?.toLocaleString() || '0'}</span>
+                        {!isEditing && (
+                          <div className="amount-section-mobile">
+                            <div className="amount-display-mobile">
+                              <span className="amount-label">
+                                {isOT ? 'OT Amount' : 'Deduction Amount'}
+                              </span>
+                              <span className={`amount-value ${isOT ? 'positive' : 'negative'}`}>
+                                {isOT ? '+' : '-'}Rs. {Math.abs(adjustmentAmount).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="rate-info-mobile">
+                              <span className="rate-label">Rate: Rs. {displayRate}/hour</span>
+                              {request.staffOtRate && (
+                                <span className="rate-source">(Staff-specific rate)</span>
+                              )}
+                            </div>
                           </div>
-                          <div className="rate-info-mobile">
-                            <span className="rate-label">Rate: Rs. 200/hour</span>
-                          </div>
-                        </div>
+                        )}
 
-                        {/* Shift Tags */}
-                        {(request.isNightShift || request.crossMidnight) && (
-                          <div className="shift-tags-mobile">
-                            {request.isNightShift && <span className="shift-tag night">🌙 Night Shift</span>}
-                            {request.crossMidnight && <span className="shift-tag cross">⏰ Crossed Midnight</span>}
+                        {/* Session Count */}
+                        {request.sessions && !isEditing && (
+                          <div className="sessions-info-mobile">
+                            <span className="sessions-label">
+                              Sessions: {request.sessions.length}
+                            </span>
                           </div>
                         )}
 
                         {/* Approval Info */}
-                        {request.approvedAt && (
+                        {request.approvedAt && !isEditing && (
                           <div className="approval-info-mobile">
                             <div className="approval-header-mobile">
                               <strong>
@@ -388,25 +550,81 @@ export default function OTApprovals({ onLogout }) {
                         )}
                       </div>
 
-                      {/* Action Buttons for Pending Requests */}
-                      {request.status === "pending" && (
-                        <div className="request-actions-mobile">
+                      {/* Action Buttons */}
+                      <div className="request-actions-mobile">
+                        {isEditing ? (
+                          <div className="edit-actions-mobile">
+                            <button 
+                              className="btn-save-edit-mobile"
+                              onClick={saveEditedHours}
+                              disabled={savingEdit || !editedHours || parseFloat(editedHours) <= 0}
+                            >
+                              <span className="btn-icon">💾</span>
+                              <span className="btn-text">
+                                {savingEdit ? 'Saving...' : 'Save Changes'}
+                              </span>
+                            </button>
+                            <button 
+                              className="btn-cancel-edit-mobile"
+                              onClick={cancelEditing}
+                              disabled={savingEdit}
+                            >
+                              <span className="btn-icon">❌</span>
+                              <span className="btn-text">Cancel</span>
+                            </button>
+                          </div>
+                        ) : request.status === "pending" ? (
+                          <>
+                            <button 
+                              className="btn-edit-hours-mobile"
+                              onClick={() => startEditing(request)}
+                              disabled={loading}
+                            >
+                              <span className="btn-icon">✏️</span>
+                              <span className="btn-text">Edit Hours</span>
+                            </button>
+                            <button 
+                              className={`btn-approve-mobile ${isOT ? 'ot-approve' : 'short-approve'}`}
+                              onClick={() => handleApprove(request)}
+                              disabled={loading}
+                            >
+                              <span className="btn-icon">✅</span>
+                              <span className="btn-text">
+                                {isOT ? 'Approve OT' : 'Confirm Deduction'}
+                              </span>
+                            </button>
+                            <button 
+                              className="btn-reject-mobile"
+                              onClick={() => handleReject(request)}
+                              disabled={loading}
+                            >
+                              <span className="btn-icon">❌</span>
+                              <span className="btn-text">Reject</span>
+                            </button>
+                          </>
+                        ) : request.status === "approved" && (
                           <button 
-                            className="btn-approve-mobile"
-                            onClick={() => handleApprove(request)}
+                            className="btn-edit-hours-mobile"
+                            onClick={() => startEditing(request)}
                             disabled={loading}
                           >
-                            <span className="btn-icon">✅</span>
-                            <span className="btn-text">Approve OT</span>
+                            <span className="btn-icon">✏️</span>
+                            <span className="btn-text">Edit Hours</span>
                           </button>
-                          <button 
-                            className="btn-reject-mobile"
-                            onClick={() => handleReject(request)}
-                            disabled={loading}
-                          >
-                            <span className="btn-icon">❌</span>
-                            <span className="btn-text">Reject OT</span>
-                          </button>
+                        )}
+                      </div>
+
+                      {/* Original Values (if edited) */}
+                      {request.adminEdited && !isEditing && (
+                        <div className="original-values-mobile">
+                          <div className="original-header-mobile">
+                            <strong>Original Values:</strong>
+                          </div>
+                          <div className="original-details-mobile">
+                            <span>Hours: {formatHours(request.originalHours)}</span>
+                            <span>Amount: Rs. {Math.abs(request.originalAmount).toLocaleString()}</span>
+                            <span>Edited: {new Date(request.editedAt).toLocaleDateString()}</span>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -421,49 +639,59 @@ export default function OTApprovals({ onLogout }) {
         {activeTab === "stats" && (
           <section className="section-mobile">
             <div className="section-header-mobile">
-              <h3>OT Statistics</h3>
-              <span className="badge-mobile">{otRequests.length}</span>
+              <h3>Adjustment Statistics</h3>
+              <span className="badge-mobile">{adjustmentRequests.length}</span>
             </div>
             
             <div className="stats-overview-mobile">
               <div className="stat-row-mobile">
                 <span className="stat-label">Total Requests:</span>
-                <span className="stat-value">{otRequests.length}</span>
+                <span className="stat-value">{adjustmentRequests.length}</span>
               </div>
               <div className="stat-row-mobile">
                 <span className="stat-label">Pending Approval:</span>
                 <span className="stat-value pending">{stats.pending}</span>
               </div>
               <div className="stat-row-mobile">
-                <span className="stat-label">Approved Requests:</span>
-                <span className="stat-value success">{stats.approved}</span>
+                <span className="stat-label">Overtime Requests:</span>
+                <span className="stat-value success">{stats.overtimeRequests}</span>
               </div>
               <div className="stat-row-mobile">
-                <span className="stat-label">Rejected Requests:</span>
-                <span className="stat-value error">{stats.rejected}</span>
-              </div>
-              <div className="stat-row-mobile">
-                <span className="stat-label">Night Shifts:</span>
-                <span className="stat-value warning">{stats.nightShifts}</span>
+                <span className="stat-label">Short Time Requests:</span>
+                <span className="stat-value warning">{stats.shortTimeRequests}</span>
               </div>
               <div className="stat-divider"></div>
-              <div className="stat-row-mobile total">
-                <span className="stat-label">Total OT Hours:</span>
-                <span className="stat-value">{formattedTotalHours}</span>
+              <div className="stat-row-mobile total positive">
+                <span className="stat-label">Total OT Hours Approved:</span>
+                <span className="stat-value">+{formattedOTHours}</span>
               </div>
-              <div className="stat-row-mobile total">
-                <span className="stat-label">Total OT Amount:</span>
-                <span className="stat-value">Rs. {stats.totalOTAmount.toLocaleString()}</span>
+              <div className="stat-row-mobile total positive">
+                <span className="stat-label">Total OT Amount Approved:</span>
+                <span className="stat-value">+Rs. {stats.totalOTAmount.toLocaleString()}</span>
+              </div>
+              <div className="stat-row-mobile total negative">
+                <span className="stat-label">Total Short Hours Approved:</span>
+                <span className="stat-value">-{formattedShortHours}</span>
+              </div>
+              <div className="stat-row-mobile total negative">
+                <span className="stat-label">Total Short Amount Approved:</span>
+                <span className="stat-value">-Rs. {stats.totalShortAmount.toLocaleString()}</span>
+              </div>
+              <div className="stat-row-mobile total highlight">
+                <span className="stat-label">Net Adjustment:</span>
+                <span className="stat-value">
+                  Rs. {(stats.totalOTAmount - stats.totalShortAmount).toLocaleString()}
+                </span>
               </div>
             </div>
 
             {/* Approval Rate */}
             <div className="approval-rate-mobile">
               <div className="rate-header-mobile">
-                <h4>OT Approval Rate</h4>
+                <h4>Overall Approval Rate</h4>
                 <span className="rate-value">
-                  {otRequests.length > 0 
-                    ? Math.round((stats.approved / otRequests.length) * 100) 
+                  {adjustmentRequests.length > 0 
+                    ? Math.round((stats.approved / adjustmentRequests.length) * 100) 
                     : 0
                   }%
                 </span>
@@ -472,7 +700,7 @@ export default function OTApprovals({ onLogout }) {
                 <div 
                   className="rate-progress-mobile"
                   style={{ 
-                    width: `${otRequests.length > 0 ? (stats.approved / otRequests.length) * 100 : 0}%` 
+                    width: `${adjustmentRequests.length > 0 ? (stats.approved / adjustmentRequests.length) * 100 : 0}%` 
                   }}
                 ></div>
               </div>
@@ -480,22 +708,22 @@ export default function OTApprovals({ onLogout }) {
 
             {/* Additional Stats */}
             <div className="additional-stats-mobile">
-              <div className="stat-card-mini">
-                <div className="stat-mini-icon">📈</div>
+              <div className="stat-card-mini positive">
+                <div className="stat-mini-icon">🔼</div>
                 <div className="stat-mini-content">
                   <div className="stat-mini-value">
-                    {formatHours(stats.approved > 0 ? (stats.totalOTHours / stats.approved) : 0)}
+                    {formatHours(stats.overtimeRequests > 0 ? (stats.totalOTHours / stats.overtimeRequests) : 0)}
                   </div>
                   <div className="stat-mini-label">Avg OT Hours</div>
                 </div>
               </div>
-              <div className="stat-card-mini">
-                <div className="stat-mini-icon">💰</div>
+              <div className="stat-card-mini negative">
+                <div className="stat-mini-icon">🔽</div>
                 <div className="stat-mini-content">
                   <div className="stat-mini-value">
-                    Rs. {stats.approved > 0 ? Math.round(stats.totalOTAmount / stats.approved) : 0}
+                    {formatHours(stats.shortTimeRequests > 0 ? (stats.totalShortHours / stats.shortTimeRequests) : 0)}
                   </div>
-                  <div className="stat-mini-label">Avg OT Amount</div>
+                  <div className="stat-mini-label">Avg Short Hours</div>
                 </div>
               </div>
             </div>
@@ -514,6 +742,7 @@ export default function OTApprovals({ onLogout }) {
               className="btn-quick-action-mobile"
               onClick={() => {
                 setFilter("pending");
+                setRequestType("all");
                 setActiveTab("requests");
               }}
             >
@@ -526,6 +755,7 @@ export default function OTApprovals({ onLogout }) {
               onClick={() => {
                 setSearchTerm("");
                 setFilter("all");
+                setRequestType("all");
               }}
             >
               <span className="btn-icon">🔄</span>
@@ -566,7 +796,7 @@ export default function OTApprovals({ onLogout }) {
           onClick={() => safeNavigate('/admin/ot-approvals')}
         >
           <span className="nav-icon">🕒</span>
-          <span className="nav-label">OT</span>
+          <span className="nav-label">Adjustments</span>
         </button>
         
         <button 
