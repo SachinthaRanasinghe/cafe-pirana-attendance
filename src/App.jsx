@@ -50,17 +50,34 @@ function App() {
   };
 
   // Check if user is already logged in on app start
-  useEffect(() => {
+  // Add this useEffect to handle iOS-specific issues
+useEffect(() => {
+  // Check if we're on iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  
+  if (isIOS) {
+    console.log("iOS device detected - applying iOS-specific fixes");
+    
+    // iOS Safari has issues with Firebase Auth persistence
+    // Force a auth state check on iOS
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user && user.email === ADMIN_CREDENTIALS.email) {
         setAdminLoggedIn(true);
-        // Request notification permission for admin
-        await notificationManager.requestPermission(user.uid);
+        console.log("Admin auto-logged in on iOS");
+        
+        // For iOS, we use a simpler notification approach
+        if ('Notification' in window) {
+          const permission = await Notification.requestPermission();
+          if (permission === 'granted') {
+            console.log("Notifications enabled on iOS");
+          }
+        }
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }
+}, []);
 
   // Staff Login Handler
   const handleStaffLogin = (staff) => {

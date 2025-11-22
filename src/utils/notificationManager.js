@@ -1,4 +1,3 @@
-// notificationManager.js
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { doc, setDoc } from 'firebase/firestore';
@@ -14,8 +13,8 @@ const firebaseConfig = {
   measurementId: "G-QQB2PXFPWK"
 };
 
-// ⚠️ MUST ADD YOUR REAL VAPID KEY HERE
-const vapidKey = "REPLACE_WITH_YOUR_REAL_VAPID_KEY_HERE";
+// Use this VAPID key (replace with your actual key from Firebase Console)
+const vapidKey = "kCzc_zKcKD9gZMXnHDYvo5AJ_xgk28RZaxwXoWxIfEQ";
 
 class NotificationManager {
   constructor() {
@@ -26,41 +25,57 @@ class NotificationManager {
 
     if (this.isSupported) {
       try {
-        const app = initializeApp(firebaseConfig, "notifications");
-        this.messaging = getMessaging(app);
-        console.log("Notifications supported.");
+        // Use the same app instance as your main app to avoid conflicts
+        this.messaging = getMessaging();
+        console.log("Firebase Messaging initialized for notifications");
       } catch (error) {
-        console.error("Error initializing Firebase notifications:", error);
+        console.error("Error initializing Firebase messaging:", error);
         this.isSupported = false;
       }
-    } else {
-      console.warn("Notifications NOT supported on this device/browser.");
     }
   }
 
-  // iOS-compatible support check
+  // Enhanced iOS support check
   checkSupport() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    
+    // iOS Safari has limited push notification support
+    if (isIOS && isSafari) {
+      console.log("iOS Safari detected - push notifications may be limited");
+      return 'Notification' in window;
+    }
+    
     return 'Notification' in window && 'serviceWorker' in navigator;
   }
 
-  // Request permission from user
+  // Enhanced permission request for iOS
   async requestPermission(adminUid) {
-    if (!this.isSupported || !this.messaging) return false;
+    if (!this.isSupported) {
+      console.log("Notifications not supported on this device");
+      return false;
+    }
 
     try {
-      const status = await Notification.requestPermission();
-      this.permission = status;
-
-      if (status !== 'granted') {
-        console.log("Notification permission denied.");
+      // For iOS, we need to request permission in a user interaction context
+      this.permission = await Notification.requestPermission();
+      
+      if (this.permission !== 'granted') {
+        console.log("Notification permission denied:", this.permission);
         return false;
       }
 
-      console.log("Notification permission granted.");
+      console.log("Notification permission granted");
 
-      await this.getFCMToken(adminUid);
+      // Only try to get FCM token if not on iOS Safari
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      
+      if (!(isIOS && isSafari)) {
+        await this.getFCMToken(adminUid);
+      }
+      
       this.setupForegroundListener();
-
       return true;
 
     } catch (err) {
@@ -69,29 +84,42 @@ class NotificationManager {
     }
   }
 
-  // Get and store FCM token
+  // Get FCM token with better error handling
   async getFCMToken(adminUid) {
+    if (!this.messaging) {
+      console.log("Messaging not available");
+      return null;
+    }
+
     try {
       const token = await getToken(this.messaging, { vapidKey });
 
       if (!token) {
-        console.warn("FCM token is null. User may need to allow notifications.");
+        console.log("No FCM token available - user may need to allow notifications");
         return null;
       }
 
       this.fcmToken = token;
+      console.log("FCM token obtained:", token);
 
+      // Store token in Firestore
       await setDoc(doc(db, "adminTokens", adminUid), {
         fcmToken: token,
         updatedAt: new Date().toISOString(),
-        enabled: true
+        enabled: true,
+        userAgent: navigator.userAgent
       }, { merge: true });
 
-      console.log("FCM token stored:", token);
       return token;
 
     } catch (error) {
       console.error("Error getting FCM token:", error);
+      
+      // Check if it's an iOS Safari limitation
+      if (error.code === 'messaging/unsupported-browser') {
+        console.log("FCM not supported in this browser");
+      }
+      
       return null;
     }
   }
@@ -101,7 +129,7 @@ class NotificationManager {
     if (!this.messaging) return;
 
     onMessage(this.messaging, (payload) => {
-      console.log("Foreground message:", payload);
+      console.log("Foreground message received:", payload);
 
       if (payload.notification) {
         this.showLocalNotification(
@@ -112,21 +140,48 @@ class NotificationManager {
     });
   }
 
-  // Display local system notification
+  // Enhanced local notification for iOS
   showLocalNotification(title, body) {
-    if (Notification.permission !== "granted") return;
+    if (Notification.permission !== "granted") {
+      console.log("Notification permission not granted");
+      return;
+    }
 
-    const n = new Notification(title, {
-      body,
-      icon: "/icons/icon-192x192.png",
-      badge: "/icons/badge-72x72.png",
-      tag: "admin-alert"
-    });
+    try {
+      const options = {
+        body: body,
+        icon: "/icons/icon-192x192.png",
+        badge: "/icons/badge-72x72.png",
+        tag: "admin-alert"
+      };
 
-    n.onclick = () => {
-      n.close();
-      window.focus();
-    };
+      const notification = new Notification(title, options);
+
+      notification.onclick = () => {
+        notification.close();
+        window.focus();
+        
+        // Navigate based on notification content
+        if (title.includes('OT') || title.includes('Overtime')) {
+          window.location.href = '/admin/ot-approvals';
+        } else if (title.includes('Advance')) {
+          window.location.href = '/admin/advances';
+        }
+      };
+
+      // Auto-close after 5 seconds
+      setTimeout(() => {
+        notification.close();
+      }, 5000);
+
+    } catch (error) {
+      console.error("Error showing notification:", error);
+    }
+  }
+
+  // Check if we can show notifications
+  canShowNotifications() {
+    return this.isSupported && this.permission === 'granted';
   }
 }
 
