@@ -148,46 +148,58 @@ export default function StaffDashboard({ staffData, onLogout }) {
       }
       return sum;
     }, 0);
-
-    // Test Mode Constants
-    const FULL_SHIFT_SECONDS = 60;      // 60 seconds = 12 hours
-    const INTERVAL_SECONDS = 5;         // 5 seconds = 1 hour
+  
+    // REAL MODE CONSTANTS
+    const FULL_SHIFT_SECONDS = 12 * 3600;   // 12 hours in seconds
+    const INTERVAL_SECONDS = 3600;          // 1 hour in seconds
     const RATE_PER_INTERVAL = staffSalary?.otRate || 200;
-
+  
     let regularSeconds = Math.min(totalSeconds, FULL_SHIFT_SECONDS);
     let otSeconds = 0;
     let shortSeconds = 0;
-
+  
     if (totalSeconds > FULL_SHIFT_SECONDS) {
+      // overtime
       otSeconds = totalSeconds - FULL_SHIFT_SECONDS;
     } else if (totalSeconds < FULL_SHIFT_SECONDS) {
+      // short time
       shortSeconds = FULL_SHIFT_SECONDS - totalSeconds;
     }
-
+  
+    // intervals
     const otIntervals = Math.floor(otSeconds / INTERVAL_SECONDS);
     const shortIntervals = Math.ceil(shortSeconds / INTERVAL_SECONDS);
+  
+    // amounts
     const otAmount = otIntervals * RATE_PER_INTERVAL;
     const shortAmount = shortIntervals * RATE_PER_INTERVAL;
-
+  
     return {
       totalSecondsToday: totalSeconds,
       regularSeconds: regularSeconds,
+  
       otSeconds: otSeconds,
       otIntervals: otIntervals,
       otAmount: otAmount,
       hasOT: otIntervals > 0,
+  
       shortSeconds: shortSeconds,
       shortIntervals: shortIntervals,
       shortAmount: shortAmount,
       hasShort: shortIntervals > 0,
-      adjustmentType: otIntervals > 0 ? "overtime" : shortIntervals > 0 ? "short_time" : "none",
-      testingMode: true,
+  
+      adjustmentType:
+        otIntervals > 0 ? "overtime" :
+        shortIntervals > 0 ? "short_time" : "none",
+  
+      testingMode: false,                    // ← real mode now
       fullShiftSeconds: FULL_SHIFT_SECONDS,
       intervalSeconds: INTERVAL_SECONDS,
       ratePerInterval: RATE_PER_INTERVAL,
       staffOtRate: RATE_PER_INTERVAL,
     };
   };
+  
 
   // === Real-time Firestore listener ===
   useEffect(() => {
