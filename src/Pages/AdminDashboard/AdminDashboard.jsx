@@ -26,25 +26,16 @@ export default function AdminDashboard({ onLogout }) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [exportProgress, setExportProgress] = useState(0);
-  const [notificationStatus, setNotificationStatus] = useState(null);
   const [pendingRequests, setPendingRequests] = useState({ ot: 0, advance: 0 });
 
   const navigate = useNavigate();
   const location = useLocation();
   const auth = getAuth();
 
-  // Add this useEffect for notifications
+  // Setup notification manager
   useEffect(() => {
-    // Set up notification callbacks
     notificationManager.setPendingRequestsCallback(setPendingRequests);
-    
-    // Get initial status
-    setNotificationStatus(notificationManager.getStatusInfo());
-
-    // Clean up on unmount
-    return () => {
-      notificationManager.cleanup();
-    };
+    return () => notificationManager.cleanup();
   }, []);
 
   // Helper functions for shift-based tracking
@@ -75,7 +66,6 @@ export default function AdminDashboard({ onLogout }) {
 
   // Listen for pending requests
   useEffect(() => {
-    // Listen for OT requests
     const otQuery = query(
       collection(db, "adjustmentRequests"), 
       orderBy("requestedAt", "desc")
@@ -88,7 +78,6 @@ export default function AdminDashboard({ onLogout }) {
       setPendingRequests(prev => ({ ...prev, ot: pendingOT }));
     });
 
-    // Listen for advance requests
     const advanceQuery = query(
       collection(db, "advanceRequests"), 
       orderBy("requestDate", "desc")
@@ -351,10 +340,8 @@ export default function AdminDashboard({ onLogout }) {
       }
 
       doc.save(`cafe-piranha-report-${selectedDate}.pdf`);
-      showNotification("PDF report generated successfully!", "success");
     } catch (err) {
       console.error(err);
-      showNotification("Error generating PDF: " + err.message, "error");
     } finally {
       setLoading(false);
       setExportProgress(0);
@@ -400,9 +387,8 @@ export default function AdminDashboard({ onLogout }) {
       link.href = URL.createObjectURL(blob);
       link.download = `cafe-piranha-attendance-${selectedDate}.csv`;
       link.click();
-      showNotification("CSV data exported successfully!", "success");
     } catch (err) {
-      showNotification("Error exporting CSV: " + err.message, "error");
+      console.error("Error exporting CSV:", err);
     }
   };
 
@@ -415,7 +401,6 @@ export default function AdminDashboard({ onLogout }) {
     
     const userInput = prompt('Type "DELETE ALL DATA" to confirm permanent deletion:');
     if (userInput !== "DELETE ALL DATA") {
-      showNotification("Data deletion cancelled", "info");
       return;
     }
 
@@ -429,9 +414,8 @@ export default function AdminDashboard({ onLogout }) {
         count++;
       });
       await batch.commit();
-      showNotification(`Successfully deleted ${count} attendance records`, "success");
     } catch (err) {
-      showNotification("Error deleting data: " + err.message, "error");
+      console.error("Error deleting data:", err);
     } finally {
       setLoading(false);
     }
@@ -457,25 +441,11 @@ export default function AdminDashboard({ onLogout }) {
         count++;
       });
       await batch.commit();
-      showNotification(`Deleted ${count} records for selected date`, "success");
     } catch (err) {
-      showNotification("Error clearing date data: " + err.message, "error");
+      console.error("Error clearing date data:", err);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Notification system
-  const showNotification = (message, type = "info") => {
-    // In a real app, you'd use a proper notification system
-    const bgColor = type === "success" ? "#10b981" : 
-                   type === "error" ? "#ef4444" : 
-                   type === "warning" ? "#f59e0b" : "#3b82f6";
-    
-    console.log(`%c${type.toUpperCase()}: ${message}`, 
-      `background: ${bgColor}; color: white; padding: 8px; border-radius: 4px;`);
-    
-    alert(`${type.toUpperCase()}: ${message}`);
   };
 
   // Helper functions
@@ -547,94 +517,43 @@ export default function AdminDashboard({ onLogout }) {
 
       {/* Main Content */}
       <main className="dashboard-main">
-       {/* Notifications Section */}
-<section className="notifications-section">
-  <div className="notification-prompt-card">
-    <div className="notification-header">
-      <div className="notification-icon">
-        {notificationStatus?.type === 'ios' ? '📱' : 
-         notificationStatus?.type === 'enabled' ? '✅' : '🔔'}
-      </div>
-      <div className="notification-content">
-        <h3>Request Alerts</h3>
-        <p>Stay updated on new staff requests</p>
-      </div>
-      <div className={`notification-status ${notificationStatus?.type || 'default'}`}>
-        {notificationStatus?.title || 'Loading...'}
-      </div>
-    </div>
-    
-    {/* Status Message */}
-    {notificationStatus && (
-      <div className="notification-status-message">
-        {notificationStatus.message}
-        
-        {/* Refresh suggestion for iOS/denied cases */}
-        {notificationStatus.showRefresh && (
-          <div className="refresh-hint">
-            <br />
-            <small>💡 Refresh this page to see latest requests</small>
+        {/* Simplified Notifications Section */}
+        <section className="notifications-section">
+          <div className="notification-prompt-card">
+            <div className="notification-header">
+              <div className="notification-icon">🔔</div>
+              <div className="notification-content">
+                <h3>Pending Requests</h3>
+                <p>Staff requests awaiting your approval</p>
+              </div>
+            </div>
+            
+            {/* Pending Requests Badges */}
+            <div className="pending-requests-badges">
+              {(pendingRequests.ot > 0 || pendingRequests.advance > 0) ? (
+                <>
+                  {pendingRequests.ot > 0 && (
+                    <div className="pending-badge ot">
+                      <span className="badge-icon">🕒</span>
+                      <span className="badge-text">{pendingRequests.ot} OT Request{pendingRequests.ot !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                  {pendingRequests.advance > 0 && (
+                    <div className="pending-badge advance">
+                      <span className="badge-icon">💰</span>
+                      <span className="badge-text">{pendingRequests.advance} Advance Request{pendingRequests.advance !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="no-pending-requests">
+                  <span className="check-icon">✅</span>
+                  <span>No pending requests</span>
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-    )}
-    
-    {/* Enable Button - Only show for supported browsers that haven't decided yet */}
-    {notificationStatus?.showEnable && (
-      <button 
-        className="btn-enable-notifications"
-        onClick={async () => {
-          const success = await notificationManager.requestPermission(auth.currentUser?.uid);
-          if (success) {
-            setNotificationStatus(notificationManager.getStatusInfo());
-            showNotification('✅ Notifications enabled!', 'success');
-          }
-        }}
-      >
-        <span className="btn-icon">🔔</span>
-        <span className="btn-text">Enable Push Notifications</span>
-      </button>
-    )}
-
-    {/* Pending Requests - Always show this */}
-    <div className="pending-requests-badges">
-      {(pendingRequests.ot > 0 || pendingRequests.advance > 0) ? (
-        <>
-          {pendingRequests.ot > 0 && (
-            <div className="pending-badge ot">
-              <span className="badge-icon">🕒</span>
-              <span className="badge-text">{pendingRequests.ot} OT Request{pendingRequests.ot !== 1 ? 's' : ''}</span>
-            </div>
-          )}
-          {pendingRequests.advance > 0 && (
-            <div className="pending-badge advance">
-              <span className="badge-icon">💰</span>
-              <span className="badge-text">{pendingRequests.advance} Advance Request{pendingRequests.advance !== 1 ? 's' : ''}</span>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="no-pending-requests">
-          <span className="check-icon">✅</span>
-          <span>No pending requests</span>
-        </div>
-      )}
-    </div>
-
-    {/* iOS Specific Help */}
-    {notificationManager.isIOS && (
-      <div className="ios-help-section">
-        <h4>📱 Using iPhone?</h4>
-        <p>For the best experience:</p>
-        <ul>
-          <li>• Bookmark this page to your Home Screen</li>
-          <li>• Check back regularly for new requests</li>
-          <li>• Use Chrome or Firefox for push notifications</li>
-        </ul>
-      </div>
-    )}
-  </div>
-</section>
+        </section>
 
         {/* Key Metrics Section */}
         <section className="metrics-section">
