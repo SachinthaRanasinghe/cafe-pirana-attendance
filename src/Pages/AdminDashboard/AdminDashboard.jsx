@@ -561,51 +561,74 @@ export default function AdminDashboard({ onLogout }) {
 
       {/* Main Content */}
       <main className="dashboard-main">
-        {/* Notifications Section */}
-        <section className="notifications-section">
-          <div className="notification-prompt-card">
-            <div className="notification-header">
-              <div className="notification-icon">🔔</div>
-              <div className="notification-content">
-                <h3>Push Notifications</h3>
-                <p>Get instant alerts for new requests even when the app is closed</p>
-              </div>
-              <div className={`notification-status ${notificationsEnabled ? 'enabled' : 'disabled'}`}>
-                {notificationsEnabled ? '✅ Enabled' : '🔕 Disabled'}
-              </div>
+       {/* Notifications Section */}
+<section className="notifications-section">
+  <div className="notification-prompt-card">
+    <div className="notification-header">
+      <div className="notification-icon">🔔</div>
+      <div className="notification-content">
+        <h3>Push Notifications</h3>
+        <p>Get instant alerts for new OT and Advance requests</p>
+      </div>
+      <div className={`notification-status ${
+        notificationManager.areNotificationsEnabled() ? 'enabled' : 
+        notificationManager.getPermissionStatus() === 'denied' ? 'denied' : 'pending'
+      }`}>
+        {notificationManager.areNotificationsEnabled() ? '✅ Enabled' : 
+         notificationManager.getPermissionStatus() === 'denied' ? '❌ Blocked' : '🔔 Enable'}
+      </div>
+    </div>
+    
+    {/* Status Message */}
+    <div className="notification-status-message">
+      {notificationManager.getStatusMessage().message}
+    </div>
+    
+    {/* Enable Button - Only show if needed */}
+    {notificationManager.shouldShowEnableButton() && (
+      <button 
+        className="btn-enable-notifications"
+        onClick={() => notificationManager.requestPermission(auth.currentUser?.uid)}
+      >
+        <span className="btn-icon">🔔</span>
+        <span className="btn-text">Enable Push Notifications</span>
+      </button>
+    )}
+    
+    {/* Instructions for denied case */}
+    {notificationManager.getPermissionStatus() === 'denied' && (
+      <div className="notification-help">
+        <p><strong>To enable notifications on iPhone:</strong></p>
+        <ol>
+          <li>Go to <strong>Settings → Safari</strong></li>
+          <li>Tap <strong>Notifications</strong></li>
+          <li>Find "Cafe Piranha" and allow notifications</li>
+          <li>Return here and refresh the page</li>
+        </ol>
+      </div>
+    )}
+
+    {/* Pending Requests Badges */}
+    <div className="pending-requests-badges">
+      {(pendingRequests.ot > 0 || pendingRequests.advance > 0) && (
+        <>
+          {pendingRequests.ot > 0 && (
+            <div className="pending-badge ot">
+              <span className="badge-icon">🕒</span>
+              <span className="badge-text">{pendingRequests.ot} OT Requests</span>
             </div>
-            
-            {!notificationsEnabled && (
-              <button 
-                className="btn-enable-notifications"
-                onClick={requestNotificationPermission}
-              >
-                <span className="btn-icon">🔔</span>
-                <span className="btn-text">Enable Push Notifications</span>
-              </button>
-            )}
-            
-            {/* Pending Requests Badges */}
-            <div className="pending-requests-badges">
-              {(pendingRequests.ot > 0 || pendingRequests.advance > 0) && (
-                <>
-                  {pendingRequests.ot > 0 && (
-                    <div className="pending-badge ot">
-                      <span className="badge-icon">🕒</span>
-                      <span className="badge-text">{pendingRequests.ot} OT Requests</span>
-                    </div>
-                  )}
-                  {pendingRequests.advance > 0 && (
-                    <div className="pending-badge advance">
-                      <span className="badge-icon">💰</span>
-                      <span className="badge-text">{pendingRequests.advance} Advance Requests</span>
-                    </div>
-                  )}
-                </>
-              )}
+          )}
+          {pendingRequests.advance > 0 && (
+            <div className="pending-badge advance">
+              <span className="badge-icon">💰</span>
+              <span className="badge-text">{pendingRequests.advance} Advance Requests</span>
             </div>
-          </div>
-        </section>
+          )}
+        </>
+      )}
+    </div>
+  </div>
+</section>
 
         {/* Key Metrics Section */}
         <section className="metrics-section">
