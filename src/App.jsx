@@ -51,32 +51,27 @@ function App() {
 
   // Check if user is already logged in on app start
   // Add this useEffect to handle iOS-specific issues
+// Add this useEffect to handle environment checks
 useEffect(() => {
-  // Check if we're on iOS
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  
-  if (isIOS) {
-    console.log("iOS device detected - applying iOS-specific fixes");
-    
-    // iOS Safari has issues with Firebase Auth persistence
-    // Force a auth state check on iOS
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (user && user.email === ADMIN_CREDENTIALS.email) {
-        setAdminLoggedIn(true);
-        console.log("Admin auto-logged in on iOS");
-        
-        // For iOS, we use a simpler notification approach
-        if ('Notification' in window) {
-          const permission = await Notification.requestPermission();
-          if (permission === 'granted') {
-            console.log("Notifications enabled on iOS");
-          }
-        }
-      }
-    });
+  console.log("User Agent:", navigator.userAgent);
+  console.log("Notification API available:", typeof Notification !== 'undefined');
+  console.log("Service Worker available:", 'serviceWorker' in navigator);
 
-    return () => unsubscribe();
-  }
+  const unsubscribe = auth.onAuthStateChanged(async (user) => {
+    if (user && user.email === ADMIN_CREDENTIALS.email) {
+      setAdminLoggedIn(true);
+      console.log("Admin logged in successfully");
+      
+      // Only try notifications if in supported environment
+      if (typeof Notification !== 'undefined') {
+        await notificationManager.requestPermission(user.uid);
+      } else {
+        console.log("Skipping notifications - Notification API not available");
+      }
+    }
+  });
+
+  return () => unsubscribe();
 }, []);
 
   // Staff Login Handler
