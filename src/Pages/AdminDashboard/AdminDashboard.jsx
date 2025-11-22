@@ -26,40 +26,26 @@ export default function AdminDashboard({ onLogout }) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [exportProgress, setExportProgress] = useState(0);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState(null);
   const [pendingRequests, setPendingRequests] = useState({ ot: 0, advance: 0 });
 
   const navigate = useNavigate();
   const location = useLocation();
   const auth = getAuth();
 
-  // Initialize notifications
+  // Add this useEffect for notifications
   useEffect(() => {
-    const initializeNotifications = async () => {
-      if (auth.currentUser) {
-        const enabled = await notificationManager.requestPermission(auth.currentUser.uid);
-        setNotificationsEnabled(enabled);
-        
-        if (enabled) {
-          console.log('Push notifications enabled for admin');
-        }
-      }
-    };
-
-    initializeNotifications();
-  }, [auth.currentUser]);
-
-  // Request notification permission
-  const requestNotificationPermission = async () => {
-    const enabled = await notificationManager.requestPermission(auth.currentUser.uid);
-    setNotificationsEnabled(enabled);
+    // Set up notification callbacks
+    notificationManager.setPendingRequestsCallback(setPendingRequests);
     
-    if (enabled) {
-      showNotification('🔔 Notifications enabled! You will receive alerts for new requests.', 'success');
-    } else {
-      showNotification('❌ Please enable notifications in your browser settings to receive alerts.', 'warning');
-    }
-  };
+    // Get initial status
+    setNotificationStatus(notificationManager.getStatusInfo());
+
+    // Clean up on unmount
+    return () => {
+      notificationManager.cleanup();
+    };
+  }, []);
 
   // Helper functions for shift-based tracking
   const getShiftDate = (timestamp) => {
@@ -565,68 +551,88 @@ export default function AdminDashboard({ onLogout }) {
 <section className="notifications-section">
   <div className="notification-prompt-card">
     <div className="notification-header">
-      <div className="notification-icon">🔔</div>
-      <div className="notification-content">
-        <h3>Push Notifications</h3>
-        <p>Get instant alerts for new OT and Advance requests</p>
+      <div className="notification-icon">
+        {notificationStatus?.type === 'ios' ? '📱' : 
+         notificationStatus?.type === 'enabled' ? '✅' : '🔔'}
       </div>
-      <div className={`notification-status ${
-        notificationManager.areNotificationsEnabled() ? 'enabled' : 
-        notificationManager.getPermissionStatus() === 'denied' ? 'denied' : 'pending'
-      }`}>
-        {notificationManager.areNotificationsEnabled() ? '✅ Enabled' : 
-         notificationManager.getPermissionStatus() === 'denied' ? '❌ Blocked' : '🔔 Enable'}
+      <div className="notification-content">
+        <h3>Request Alerts</h3>
+        <p>Stay updated on new staff requests</p>
+      </div>
+      <div className={`notification-status ${notificationStatus?.type || 'default'}`}>
+        {notificationStatus?.title || 'Loading...'}
       </div>
     </div>
     
     {/* Status Message */}
-    <div className="notification-status-message">
-      {notificationManager.getStatusMessage().message}
-    </div>
+    {notificationStatus && (
+      <div className="notification-status-message">
+        {notificationStatus.message}
+        
+        {/* Refresh suggestion for iOS/denied cases */}
+        {notificationStatus.showRefresh && (
+          <div className="refresh-hint">
+            <br />
+            <small>💡 Refresh this page to see latest requests</small>
+          </div>
+        )}
+      </div>
+    )}
     
-    {/* Enable Button - Only show if needed */}
-    {notificationManager.shouldShowEnableButton() && (
+    {/* Enable Button - Only show for supported browsers that haven't decided yet */}
+    {notificationStatus?.showEnable && (
       <button 
         className="btn-enable-notifications"
-        onClick={() => notificationManager.requestPermission(auth.currentUser?.uid)}
+        onClick={async () => {
+          const success = await notificationManager.requestPermission(auth.currentUser?.uid);
+          if (success) {
+            setNotificationStatus(notificationManager.getStatusInfo());
+            showNotification('✅ Notifications enabled!', 'success');
+          }
+        }}
       >
         <span className="btn-icon">🔔</span>
         <span className="btn-text">Enable Push Notifications</span>
       </button>
     )}
-    
-    {/* Instructions for denied case */}
-    {notificationManager.getPermissionStatus() === 'denied' && (
-      <div className="notification-help">
-        <p><strong>To enable notifications on iPhone:</strong></p>
-        <ol>
-          <li>Go to <strong>Settings → Safari</strong></li>
-          <li>Tap <strong>Notifications</strong></li>
-          <li>Find "Cafe Piranha" and allow notifications</li>
-          <li>Return here and refresh the page</li>
-        </ol>
-      </div>
-    )}
 
-    {/* Pending Requests Badges */}
+    {/* Pending Requests - Always show this */}
     <div className="pending-requests-badges">
-      {(pendingRequests.ot > 0 || pendingRequests.advance > 0) && (
+      {(pendingRequests.ot > 0 || pendingRequests.advance > 0) ? (
         <>
           {pendingRequests.ot > 0 && (
             <div className="pending-badge ot">
               <span className="badge-icon">🕒</span>
-              <span className="badge-text">{pendingRequests.ot} OT Requests</span>
+              <span className="badge-text">{pendingRequests.ot} OT Request{pendingRequests.ot !== 1 ? 's' : ''}</span>
             </div>
           )}
           {pendingRequests.advance > 0 && (
             <div className="pending-badge advance">
               <span className="badge-icon">💰</span>
-              <span className="badge-text">{pendingRequests.advance} Advance Requests</span>
+              <span className="badge-text">{pendingRequests.advance} Advance Request{pendingRequests.advance !== 1 ? 's' : ''}</span>
             </div>
           )}
         </>
+      ) : (
+        <div className="no-pending-requests">
+          <span className="check-icon">✅</span>
+          <span>No pending requests</span>
+        </div>
       )}
     </div>
+
+    {/* iOS Specific Help */}
+    {notificationManager.isIOS && (
+      <div className="ios-help-section">
+        <h4>📱 Using iPhone?</h4>
+        <p>For the best experience:</p>
+        <ul>
+          <li>• Bookmark this page to your Home Screen</li>
+          <li>• Check back regularly for new requests</li>
+          <li>• Use Chrome or Firefox for push notifications</li>
+        </ul>
+      </div>
+    )}
   </div>
 </section>
 

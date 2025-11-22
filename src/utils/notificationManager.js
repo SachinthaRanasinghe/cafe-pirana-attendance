@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const firebaseConfig = {
@@ -15,38 +15,50 @@ const firebaseConfig = {
 
 class NotificationManager {
   constructor() {
+    this.isIOS = this.checkIfIOS();
     this.isSupported = this.checkSupport();
     this.permission = this.getPermissionStatus();
     this.fcmToken = null;
     this.messaging = null;
-    this.hasRequested = false; // Track if we've already asked
+    this.hasRequested = false;
+    this.pendingRequests = { ot: 0, advance: 0 };
 
-    if (this.isSupported) {
+    console.log("Notification Manager initialized:", {
+      isIOS: this.isIOS,
+      isSupported: this.isSupported,
+      permission: this.permission,
+      userAgent: navigator.userAgent
+    });
+
+    if (this.isSupported && !this.isIOS) {
       try {
         this.messaging = getMessaging();
-        console.log("Firebase Messaging initialized");
+        console.log("Firebase Messaging initialized for non-iOS devices");
       } catch (error) {
         console.error("Error initializing Firebase messaging:", error);
-        this.isSupported = false;
       }
     }
+
+    // Always set up Firestore listeners for pending requests
+    this.setupRequestListeners();
+  }
+
+  checkIfIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent);
   }
 
   checkSupport() {
     try {
-      if (typeof window === 'undefined' || typeof Notification === 'undefined') {
-        return false;
+      // iOS Safari doesn't support Notification API in web apps
+      if (this.isIOS) {
+        return false; // Explicitly false for iOS web apps
       }
       
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-      
-      console.log("Device detected - iOS:", isIOS, "Safari:", isSafari);
-      
-      // iOS Safari supports basic notifications but not service workers/push
-      return true; // Always return true for basic Notification API
+      // For other browsers, check normal support
+      return typeof Notification !== 'undefined' && 
+             'serviceWorker' in navigator && 
+             'PushManager' in window;
     } catch (error) {
-      console.error("Error checking notification support:", error);
       return false;
     }
   }
@@ -56,123 +68,152 @@ class NotificationManager {
       if (typeof Notification !== 'undefined') {
         return Notification.permission;
       }
-      return 'default'; // Use 'default' instead of 'denied' for initial state
+      return 'unsupported';
     } catch (error) {
-      return 'default';
+      return 'unsupported';
     }
   }
 
-  // New method: Check if we should show the enable button
-  shouldShowEnableButton() {
-    return this.isSupported && this.permission === 'default' && !this.hasRequested;
+  // Set up Firestore listeners to track pending requests
+  setupRequestListeners() {
+    // Listen for OT requests
+    const otQuery = query(
+      collection(db, 'adjustmentRequests'),
+      where('status', '==', 'pending')
+    );
+
+    const otUnsubscribe = onSnapshot(otQuery, (snapshot) => {
+      this.pendingRequests.ot = snapshot.size;
+      console.log(`Pending OT requests: ${snapshot.size}`);
+      this.updateUI();
+    });
+
+    // Listen for advance requests
+    const advanceQuery = query(
+      collection(db, 'advanceRequests'),
+      where('status', '==', 'pending')
+    );
+
+    const advanceUnsubscribe = onSnapshot(advanceQuery, (snapshot) => {
+      this.pendingRequests.advance = snapshot.size;
+      console.log(`Pending Advance requests: ${snapshot.size}`);
+      this.updateUI();
+    });
+
+    // Store unsubscribe functions
+    this.unsubscribeListeners = [otUnsubscribe, advanceUnsubscribe];
   }
 
-  // New method: Check if notifications are enabled
-  areNotificationsEnabled() {
-    return this.isSupported && this.permission === 'granted';
+  // Update UI when request counts change
+  updateUI() {
+    // This will be called by the React component
+    if (this.onPendingRequestsUpdate) {
+      this.onPendingRequestsUpdate(this.pendingRequests);
+    }
   }
 
-  // New method: Get status message for UI
-  getStatusMessage() {
+  // Set callback for React component
+  setPendingRequestsCallback(callback) {
+    this.onPendingRequestsUpdate = callback;
+    // Call immediately with current state
+    callback(this.pendingRequests);
+  }
+
+  // Get status for UI display
+  getStatusInfo() {
+    if (this.isIOS) {
+      return {
+        type: 'ios',
+        title: '📱 iOS Device',
+        message: 'Push notifications are not available in Safari. Use a different browser or check this dashboard regularly.',
+        showEnable: false,
+        showRefresh: true
+      };
+    }
+
     if (!this.isSupported) {
       return {
-        type: 'error',
-        message: '❌ Notifications not supported on this device',
-        showEnable: false
+        type: 'unsupported',
+        title: '❌ Not Supported',
+        message: 'Your browser does not support push notifications.',
+        showEnable: false,
+        showRefresh: false
       };
     }
 
     switch (this.permission) {
       case 'granted':
         return {
-          type: 'success', 
-          message: '✅ Notifications enabled',
-          showEnable: false
+          type: 'enabled',
+          title: '✅ Enabled',
+          message: 'You will receive notifications for new requests.',
+          showEnable: false,
+          showRefresh: false
         };
       case 'denied':
         return {
-          type: 'error',
-          message: '❌ Notifications blocked. Enable in Settings → Safari → Notifications',
-          showEnable: false
+          type: 'denied',
+          title: '❌ Blocked',
+          message: 'Notifications are blocked. Please enable them in your browser settings.',
+          showEnable: false,
+          showRefresh: true
         };
       case 'default':
         return {
-          type: 'info',
-          message: this.hasRequested ? 
-            '⏳ Waiting for permission...' : 
-            '🔔 Enable notifications to get alerts for new requests',
-          showEnable: !this.hasRequested
+          type: 'default',
+          title: '🔔 Notifications',
+          message: 'Enable to get alerts for new OT and Advance requests.',
+          showEnable: true,
+          showRefresh: false
         };
       default:
         return {
-          type: 'info',
-          message: '🔔 Enable push notifications',
-          showEnable: true
+          type: 'unknown',
+          title: '🔔 Notifications',
+          message: 'Enable push notifications for alerts.',
+          showEnable: true,
+          showRefresh: false
         };
     }
   }
 
   async requestPermission(adminUid) {
-    if (!this.isSupported) {
-      console.log("Notifications not supported");
+    if (!this.isSupported || this.isIOS) {
+      console.log("Notifications not supported on this device");
       return false;
     }
 
-    // Don't request again if already denied
     if (this.permission === 'denied') {
-      console.log("Notifications already denied by user");
+      console.log("Notifications already denied");
       return false;
     }
 
-    // Mark that we've requested permission
     this.hasRequested = true;
 
     try {
-      console.log("Requesting notification permission...");
-      
-      // On iOS, this must be called from a direct user interaction
       this.permission = await Notification.requestPermission();
       
-      console.log("Notification permission result:", this.permission);
-
       if (this.permission === 'granted') {
-        console.log("✅ Notification permission granted");
-
-        // Store preference in Firestore
+        console.log("✅ Notifications enabled");
+        
         await setDoc(doc(db, "adminTokens", adminUid), {
           notificationsEnabled: true,
-          permission: this.permission,
-          updatedAt: new Date().toISOString(),
-          userAgent: navigator.userAgent,
-          platform: 'web'
-        }, { merge: true });
-
-        // Try to get FCM token for non-iOS devices
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        
-        if (!(isIOS && isSafari) && this.messaging) {
-          await this.getFCMToken(adminUid);
-        }
-
-        return true;
-      } else {
-        console.log("Notification permission not granted:", this.permission);
-        
-        // Store the denial
-        await setDoc(doc(db, "adminTokens", adminUid), {
-          notificationsEnabled: false,
           permission: this.permission,
           updatedAt: new Date().toISOString(),
           userAgent: navigator.userAgent
         }, { merge: true });
 
-        return false;
-      }
+        // Get FCM token for supported browsers
+        if (this.messaging) {
+          await this.getFCMToken(adminUid);
+        }
 
+        return true;
+      }
+      
+      return false;
     } catch (err) {
-      console.error("Error requesting notification permission:", err);
-      this.hasRequested = false; // Reset on error
+      console.error("Error requesting permission:", err);
       return false;
     }
   }
@@ -181,7 +222,7 @@ class NotificationManager {
     if (!this.messaging) return null;
 
     try {
-      const vapidKey = "YOUR_VAPID_KEY_HERE"; // Replace with actual key
+      const vapidKey = "YOUR_VAPID_KEY_HERE";
       const token = await getToken(this.messaging, { vapidKey });
 
       if (token) {
@@ -198,46 +239,16 @@ class NotificationManager {
     }
   }
 
-  setupForegroundListener() {
-    if (!this.messaging) return;
-
-    try {
-      onMessage(this.messaging, (payload) => {
-        console.log("Foreground message:", payload);
-        if (payload.notification) {
-          this.showLocalNotification(
-            payload.notification.title,
-            payload.notification.body
-          );
-        }
-      });
-    } catch (error) {
-      console.error("Error setting up foreground listener:", error);
+  // Clean up listeners
+  cleanup() {
+    if (this.unsubscribeListeners) {
+      this.unsubscribeListeners.forEach(unsubscribe => unsubscribe());
     }
   }
 
-  showLocalNotification(title, body) {
-    try {
-      if (this.permission !== 'granted') return;
-
-      const notification = new Notification(title, {
-        body,
-        icon: "/icons/icon-192x192.png",
-        badge: "/icons/badge-72x72.png",
-        tag: "admin-alert"
-      });
-
-      notification.onclick = () => {
-        notification.close();
-        window.focus();
-        if (title.includes('OT')) window.location.href = '/admin/ot-approvals';
-        else if (title.includes('Advance')) window.location.href = '/admin/advances';
-      };
-
-      setTimeout(() => notification.close(), 5000);
-    } catch (error) {
-      console.error("Error showing notification:", error);
-    }
+  // Get current pending requests
+  getPendingRequests() {
+    return this.pendingRequests;
   }
 }
 
