@@ -1,159 +1,132 @@
+// notificationManager.js
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// Use your existing Firebase config from your firebase.js file
-// Make sure to import it properly or define it here
 const firebaseConfig = {
-  // Your existing Firebase config from src/firebase.js
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "your-sender-id",
-  appId: "your-app-id"
+  apiKey: "AIzaSyBrOI8XqyYzWgE-sKMEjJMdeGtoKz7Pt2o",
+  authDomain: "cafe-pirana-attendance.firebaseapp.com",
+  projectId: "cafe-pirana-attendance",
+  storageBucket: "cafe-pirana-attendance.appspot.com",
+  messagingSenderId: "1009772109491",
+  appId: "1:1009772109491:web:5d0d28f9495e016567dac6",
+  measurementId: "G-QQB2PXFPWK"
 };
+
+// ⚠️ MUST ADD YOUR REAL VAPID KEY HERE
+const vapidKey = "REPLACE_WITH_YOUR_REAL_VAPID_KEY_HERE";
 
 class NotificationManager {
   constructor() {
     this.isSupported = this.checkSupport();
-    this.permission = null;
+    this.permission = Notification.permission;
     this.fcmToken = null;
     this.messaging = null;
-    
+
     if (this.isSupported) {
       try {
-        const app = initializeApp(firebaseConfig, 'notifications');
+        const app = initializeApp(firebaseConfig, "notifications");
         this.messaging = getMessaging(app);
+        console.log("Notifications supported.");
       } catch (error) {
-        console.error('Error initializing Firebase for notifications:', error);
+        console.error("Error initializing Firebase notifications:", error);
         this.isSupported = false;
       }
+    } else {
+      console.warn("Notifications NOT supported on this device/browser.");
     }
   }
 
+  // iOS-compatible support check
   checkSupport() {
-    return (
-      'Notification' in window &&
-      'serviceWorker' in navigator &&
-      'PushManager' in window
-    );
+    return 'Notification' in window && 'serviceWorker' in navigator;
   }
 
-  // Request notification permission
+  // Request permission from user
   async requestPermission(adminUid) {
-    if (!this.isSupported || !this.messaging) {
-      console.log('Notifications not supported');
-      return false;
-    }
+    if (!this.isSupported || !this.messaging) return false;
 
     try {
-      this.permission = await Notification.requestPermission();
-      
-      if (this.permission === 'granted') {
-        console.log('Notification permission granted.');
-        await this.getFCMToken(adminUid);
-        await this.setupMessageListener();
-        return true;
-      } else {
-        console.log('Unable to get permission to notify.');
+      const status = await Notification.requestPermission();
+      this.permission = status;
+
+      if (status !== 'granted') {
+        console.log("Notification permission denied.");
         return false;
       }
-    } catch (error) {
-      console.error('Error requesting notification permission:', error);
+
+      console.log("Notification permission granted.");
+
+      await this.getFCMToken(adminUid);
+      this.setupForegroundListener();
+
+      return true;
+
+    } catch (err) {
+      console.error("Permission request error:", err);
       return false;
     }
   }
 
-  // Get FCM token
+  // Get and store FCM token
   async getFCMToken(adminUid) {
-    if (!this.messaging) return null;
-
     try {
-      // VAPID key - you need to get this from Firebase Console
-      // Firebase Console > Project Settings > Cloud Messaging > Web configuration
-      const vapidKey = "YOUR_VAPID_KEY_HERE"; // Replace with your actual VAPID key
-      
-      this.fcmToken = await getToken(this.messaging, { vapidKey });
-      
-      if (this.fcmToken) {
-        // Store the token in Firestore for this admin
-        await setDoc(doc(db, 'adminTokens', adminUid), {
-          fcmToken: this.fcmToken,
-          updatedAt: new Date().toISOString(),
-          enabled: true
-        }, { merge: true });
-        
-        console.log('FCM token stored:', this.fcmToken);
-        return this.fcmToken;
-      } else {
-        console.log('No registration token available.');
+      const token = await getToken(this.messaging, { vapidKey });
+
+      if (!token) {
+        console.warn("FCM token is null. User may need to allow notifications.");
         return null;
       }
+
+      this.fcmToken = token;
+
+      await setDoc(doc(db, "adminTokens", adminUid), {
+        fcmToken: token,
+        updatedAt: new Date().toISOString(),
+        enabled: true
+      }, { merge: true });
+
+      console.log("FCM token stored:", token);
+      return token;
+
     } catch (error) {
-      console.error('Error getting FCM token:', error);
+      console.error("Error getting FCM token:", error);
       return null;
     }
   }
 
-  // Listen for foreground messages
-  async setupMessageListener() {
+  // Foreground notifications
+  setupForegroundListener() {
     if (!this.messaging) return;
 
     onMessage(this.messaging, (payload) => {
-      console.log('Foreground message received: ', payload);
-      
-      this.showLocalNotification(
-        payload.notification?.title || 'New Request',
-        payload.notification?.body || 'You have a new request pending'
-      );
+      console.log("Foreground message:", payload);
+
+      if (payload.notification) {
+        this.showLocalNotification(
+          payload.notification.title,
+          payload.notification.body
+        );
+      }
     });
   }
 
-  // Show local notification
+  // Display local system notification
   showLocalNotification(title, body) {
-    if (this.permission === 'granted') {
-      const options = {
-        body: body,
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/badge-72x72.png',
-        tag: 'admin-notification',
-        requireInteraction: true,
-        actions: [
-          {
-            action: 'view',
-            title: 'View'
-          }
-        ]
-      };
+    if (Notification.permission !== "granted") return;
 
-      // Check if we can use the Notification API
-      if ('Notification' in window && Notification.permission === 'granted') {
-        const notification = new Notification(title, options);
+    const n = new Notification(title, {
+      body,
+      icon: "/icons/icon-192x192.png",
+      badge: "/icons/badge-72x72.png",
+      tag: "admin-alert"
+    });
 
-        notification.onclick = () => {
-          window.focus();
-          notification.close();
-          // Navigate to relevant page
-          if (title.includes('OT') || title.includes('Overtime')) {
-            window.location.href = '/admin/ot-approvals';
-          } else if (title.includes('Advance')) {
-            window.location.href = '/admin/advances';
-          }
-        };
-      }
-    }
-  }
-
-  // Check current permission status
-  getPermissionStatus() {
-    return Notification.permission;
-  }
-
-  // Check if notifications are supported and permitted
-  checkNotificationSupport() {
-    return this.isSupported && this.permission === 'granted';
+    n.onclick = () => {
+      n.close();
+      window.focus();
+    };
   }
 }
 

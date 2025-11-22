@@ -1,8 +1,8 @@
-// src/App.jsx
 import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { auth } from "./firebase.js";
+import { notificationManager } from "./utils/notificationManager.js"; // Notification Manager
 import "./App.css";
 
 // Import Pages
@@ -20,6 +20,14 @@ import StaffDashboard from "./Pages/StaffDashboard/StaffDashboard.jsx";
 import SalaryView from "./Pages/StaffDashboard/SalaryView.jsx";
 import RequestAdvance from "./Pages/StaffDashboard/RequestAdvance.jsx";
 import StaffAvailability from "./Pages/StaffDashboard/StaffAvailability.jsx";
+
+// Register service worker for notifications
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("/firebase-messaging-sw.js")
+    .then((reg) => console.log("Service Worker registered:", reg))
+    .catch((err) => console.error("SW registration failed:", err));
+}
 
 function App() {
   const [showLogin, setShowLogin] = useState(false);
@@ -43,9 +51,11 @@ function App() {
 
   // Check if user is already logged in on app start
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user && user.email === ADMIN_CREDENTIALS.email) {
         setAdminLoggedIn(true);
+        // Request notification permission for admin
+        await notificationManager.requestPermission(user.uid);
       }
     });
 
@@ -60,7 +70,7 @@ function App() {
     setShowLogin(false);
   };
 
-  // Admin Login Handler with Firebase Authentication
+  // Admin Login Handler
   const handleAdminLogin = async (e) => {
     e.preventDefault();
     
@@ -72,12 +82,7 @@ function App() {
     setIsLoading(true);
     
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth, 
-        adminEmail, 
-        adminPassword
-      );
-      
+      const userCredential = await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
       const user = userCredential.user;
       
       if (user.email === ADMIN_CREDENTIALS.email) {
@@ -85,6 +90,8 @@ function App() {
         setAdminEmail("");
         setAdminPassword("");
         setShowAdminLogin(false);
+        // Request notification permission
+        await notificationManager.requestPermission(user.uid);
       } else {
         await signOut(auth);
         alert("Access denied. Admin credentials required.");
@@ -92,17 +99,10 @@ function App() {
     } catch (error) {
       console.error("Admin login error:", error);
       let errorMessage = "Invalid admin credentials!";
-      
-      if (error.code === 'auth/invalid-email') {
-        errorMessage = "Invalid email format.";
-      } else if (error.code === 'auth/user-not-found') {
-        errorMessage = "No admin account found with this email.";
-      } else if (error.code === 'auth/wrong-password') {
-        errorMessage = "Incorrect password.";
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = "Too many failed attempts. Please try again later.";
-      }
-      
+      if (error.code === 'auth/invalid-email') errorMessage = "Invalid email format.";
+      else if (error.code === 'auth/user-not-found') errorMessage = "No admin account found with this email.";
+      else if (error.code === 'auth/wrong-password') errorMessage = "Incorrect password.";
+      else if (error.code === 'auth/too-many-requests') errorMessage = "Too many failed attempts. Try again later.";
       alert(errorMessage);
     } finally {
       setIsLoading(false);
