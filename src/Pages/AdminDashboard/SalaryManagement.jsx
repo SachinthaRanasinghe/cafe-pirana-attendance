@@ -13,6 +13,7 @@ import {
 import { db } from "../../firebase";
 import "./SalaryManagement.css";
 import { useNavigate, useLocation } from "react-router-dom";
+import { getDayOffRates, saveDayOffRates, calculateMonthlyDaysOff } from "../../config/dayOffRates";
 
 export default function SalaryManagement({ onLogout }) {
   const [staffMembers, setStaffMembers] = useState([]);
@@ -27,6 +28,11 @@ export default function SalaryManagement({ onLogout }) {
   const [adjustmentRequests, setAdjustmentRequests] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [staffLoading, setStaffLoading] = useState(true);
+  const [dayOffRates, setDayOffRates] = useState(null);
+  const [dayOffConfig, setDayOffConfig] = useState({ maxDaysOff: 4, deductionPerDay: 500, bonusPerDay: 300 });
+  const [staffDaysOff, setStaffDaysOff] = useState({});
+  const [showDayOffConfig, setShowDayOffConfig] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,6 +45,48 @@ export default function SalaryManagement({ onLogout }) {
     }
     return date.toISOString().substring(0, 7);
   };
+
+  // Fetch day-off configuration
+  useEffect(() => {
+    const fetchDayOffRates = async () => {
+      try {
+        const rates = await getDayOffRates();
+        setDayOffRates(rates);
+        setDayOffConfig({
+          maxDaysOff: rates.maxDaysOff || 4,
+          deductionPerDay: rates.deductionPerDay || 500,
+          bonusPerDay: rates.bonusPerDay || 300
+        });
+      } catch (error) {
+        console.error("Error fetching day-off rates:", error);
+      }
+    };
+    fetchDayOffRates();
+  }, []);
+
+  // Calculate monthly days off for all staff
+  useEffect(() => {
+    const calculateAllStaffDaysOff = async () => {
+      if (!staffMembers.length) return;
+      
+      const currentMonth = getShiftMonth(new Date());
+      const daysOffData = {};
+      
+      for (const staff of staffMembers) {
+        try {
+          const daysOff = await calculateMonthlyDaysOff(staff.staffUid, currentMonth);
+          daysOffData[staff.staffUid] = daysOff;
+        } catch (error) {
+          console.error(`Error calculating days off for ${staff.staffName}:`, error);
+          daysOffData[staff.staffUid] = 0;
+        }
+      }
+      
+      setStaffDaysOff(daysOffData);
+    };
+    
+    calculateAllStaffDaysOff();
+  }, [staffMembers]);
 
   // Fetch all staff members from sessions
   useEffect(() => {
@@ -300,12 +348,33 @@ export default function SalaryManagement({ onLogout }) {
     return approvedAdvances[staffUid][currentMonth] || 0;
   };
 
-  // Calculate net salary (basic + OT - Short Time - advances)
+  // Calculate day-off deduction/bonus
+  const getDayOffAdjustment = (staffUid) => {
+    if (!dayOffConfig || !staffDaysOff[staffUid]) return 0;
+    
+    const daysOff = staffDaysOff[staffUid];
+    const { maxDaysOff, deductionPerDay, bonusPerDay } = dayOffConfig;
+    
+    if (daysOff > maxDaysOff) {
+      // Deduct for each day over the limit
+      const excessDays = daysOff - maxDaysOff;
+      return -Math.abs(excessDays * deductionPerDay);
+    } else if (daysOff < maxDaysOff) {
+      // Bonus for each day under the limit
+      const bonusDays = maxDaysOff - daysOff;
+      return bonusDays * bonusPerDay;
+    }
+    
+    return 0;
+  };
+
+  // Calculate net salary (basic + OT - Short Time - advances - day-off deductions + day-off bonus)
   const calculateNetSalary = (staffUid, monthlySalary) => {
     const advances = getTotalAdvances(staffUid);
     const adjustments = getTotalAdjustments(staffUid);
+    const dayOffAdjustment = getDayOffAdjustment(staffUid);
     
-    return Math.max(0, monthlySalary + adjustments - advances);
+    return Math.max(0, monthlySalary + adjustments + dayOffAdjustment - advances);
   };
 
   // Calculate advance usage percentage
@@ -384,6 +453,27 @@ export default function SalaryManagement({ onLogout }) {
     } catch (error) {
       console.warn("Navigation error, using fallback:", error);
       window.location.href = path;
+    }
+  };
+
+  // Handle saving day-off configuration
+  const handleSaveDayOffConfig = async () => {
+    setSavingConfig(true);
+    try {
+      const success = await saveDayOffRates(dayOffConfig);
+      if (success) {
+        const updatedRates = await getDayOffRates();
+        setDayOffRates(updatedRates);
+        setShowDayOffConfig(false);
+        alert("Day-off configuration saved successfully!");
+      } else {
+        alert("Error saving configuration. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving day-off config:", error);
+      alert("Error saving configuration: " + error.message);
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -523,6 +613,96 @@ export default function SalaryManagement({ onLogout }) {
           </div>
         </section>
 
+        {/* Day-Off Configuration Section */}
+        <section className="dayoff-config-section">
+          <div className="config-card">
+            <div className="config-header">
+              <div className="config-title">
+                <span className="config-icon">📅</span>
+                <h3>Day-Off Policy Configuration</h3>
+              </div>
+              <button 
+                className="btn-config-toggle"
+                onClick={() => setShowDayOffConfig(!showDayOffConfig)}
+              >
+                <span className="btn-icon">{showDayOffConfig ? "▼" : "▶"}</span>
+                <span>{showDayOffConfig ? "Hide" : "Configure"}</span>
+              </button>
+            </div>
+            
+            {showDayOffConfig && (
+              <div className="config-content">
+                <div className="config-info">
+                  <p>Configure deduction and bonus amounts for staff day-off policy:</p>
+                  <ul>
+                    <li>If staff takes <strong>more than {dayOffConfig.maxDaysOff} days off</strong> per month → Deduct salary</li>
+                    <li>If staff takes <strong>less than {dayOffConfig.maxDaysOff} days off</strong> per month → Add bonus</li>
+                  </ul>
+                </div>
+                
+                <div className="config-form">
+                  <div className="form-group">
+                    <label className="form-label">Maximum Days Off (Threshold)</label>
+                    <input
+                      type="number"
+                      value={dayOffConfig.maxDaysOff}
+                      onChange={(e) => setDayOffConfig({ ...dayOffConfig, maxDaysOff: parseInt(e.target.value) || 4 })}
+                      className="form-input"
+                      min="0"
+                      max="30"
+                    />
+                    <span className="form-help">Days off above this threshold will trigger deduction</span>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label className="form-label">Deduction Per Day (Rs.)</label>
+                    <input
+                      type="number"
+                      value={dayOffConfig.deductionPerDay}
+                      onChange={(e) => setDayOffConfig({ ...dayOffConfig, deductionPerDay: parseFloat(e.target.value) || 500 })}
+                      className="form-input"
+                      min="0"
+                      step="50"
+                    />
+                    <span className="form-help">Amount deducted for each day over the threshold</span>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label className="form-label">Bonus Per Day (Rs.)</label>
+                    <input
+                      type="number"
+                      value={dayOffConfig.bonusPerDay}
+                      onChange={(e) => setDayOffConfig({ ...dayOffConfig, bonusPerDay: parseFloat(e.target.value) || 300 })}
+                      className="form-input"
+                      min="0"
+                      step="50"
+                    />
+                    <span className="form-help">Bonus amount for each day under the threshold</span>
+                  </div>
+                  
+                  <button 
+                    className={`btn-primary ${savingConfig ? 'loading' : ''}`}
+                    onClick={handleSaveDayOffConfig}
+                    disabled={savingConfig}
+                  >
+                    {savingConfig ? (
+                      <>
+                        <div className="loading-spinner-small"></div>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="btn-icon">💾</span>
+                        <span>Save Configuration</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* Search Section */}
         <section className="search-section">
           <div className="search-container">
@@ -629,6 +809,16 @@ export default function SalaryManagement({ onLogout }) {
                                 <div className="adjustment-item warning">
                                   <span>Advances: -{formatCurrency(getTotalAdvances(selectedStaff.staffUid))}</span>
                                 </div>
+                                {dayOffConfig && staffDaysOff[selectedStaff.staffUid] !== undefined && (
+                                  <div className={`adjustment-item ${getDayOffAdjustment(selectedStaff.staffUid) > 0 ? 'positive' : getDayOffAdjustment(selectedStaff.staffUid) < 0 ? 'negative' : ''}`}>
+                                    <span>
+                                      Days Off: {staffDaysOff[selectedStaff.staffUid]} days
+                                      {getDayOffAdjustment(selectedStaff.staffUid) !== 0 && (
+                                        <span> ({getDayOffAdjustment(selectedStaff.staffUid) > 0 ? '+' : ''}{formatCurrency(getDayOffAdjustment(selectedStaff.staffUid))})</span>
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -749,6 +939,8 @@ export default function SalaryManagement({ onLogout }) {
                       const totalShort = getTotalShort(salary.staffUid);
                       const totalOTHours = getTotalOTHours(salary.staffUid);
                       const totalShortHours = getTotalShortHours(salary.staffUid);
+                      const dayOffAdjustment = getDayOffAdjustment(salary.staffUid);
+                      const daysOff = staffDaysOff[salary.staffUid] || 0;
                       const netSalary = calculateNetSalary(salary.staffUid, salary.monthlySalary);
                       const advanceUsage = getAdvanceUsagePercentage(salary.staffUid, salary.monthlySalary);
                       const staffOtRate = getOtRate(salary.staffUid);
@@ -832,6 +1024,33 @@ export default function SalaryManagement({ onLogout }) {
                                 </div>
                               )}
                               
+                              {/* Day-Off Adjustment */}
+                              {dayOffAdjustment !== 0 && (
+                                <div className="summary-section">
+                                  <div className={`summary-item ${dayOffAdjustment > 0 ? 'positive' : 'negative'}`}>
+                                    <span className="summary-label">
+                                      Day-Off {dayOffAdjustment > 0 ? 'Bonus' : 'Deduction'}
+                                    </span>
+                                    <span className="summary-value">
+                                      {dayOffAdjustment > 0 ? '+' : ''}{formatCurrency(dayOffAdjustment)}
+                                    </span>
+                                    <span className="summary-note">
+                                      {daysOff} days off this month
+                                      {dayOffConfig && (
+                                        <>
+                                          {daysOff > dayOffConfig.maxDaysOff && (
+                                            <span> ({daysOff - dayOffConfig.maxDaysOff} over limit)</span>
+                                          )}
+                                          {daysOff < dayOffConfig.maxDaysOff && (
+                                            <span> ({dayOffConfig.maxDaysOff - daysOff} under limit)</span>
+                                          )}
+                                        </>
+                                      )}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                              
                               <div className="summary-section total">
                                 <div className="summary-item total">
                                   <span className="summary-label">Net Salary</span>
@@ -839,6 +1058,36 @@ export default function SalaryManagement({ onLogout }) {
                                 </div>
                               </div>
                             </div>
+                            
+                            {/* Day-Off Status */}
+                            {dayOffConfig && (
+                              <div className="dayoff-status">
+                                <div className="status-header">
+                                  <span className="status-label">Days Off This Month</span>
+                                  <span className={`status-value ${daysOff > dayOffConfig.maxDaysOff ? 'warning' : daysOff < dayOffConfig.maxDaysOff ? 'success' : 'neutral'}`}>
+                                    {daysOff} / {dayOffConfig.maxDaysOff} limit
+                                  </span>
+                                </div>
+                                {daysOff > dayOffConfig.maxDaysOff && (
+                                  <div className="status-message warning">
+                                    <span className="status-icon">⚠️</span>
+                                    <span>Exceeded limit by {daysOff - dayOffConfig.maxDaysOff} day(s)</span>
+                                  </div>
+                                )}
+                                {daysOff < dayOffConfig.maxDaysOff && (
+                                  <div className="status-message success">
+                                    <span className="status-icon">✅</span>
+                                    <span>Under limit by {dayOffConfig.maxDaysOff - daysOff} day(s) - Bonus eligible</span>
+                                  </div>
+                                )}
+                                {daysOff === dayOffConfig.maxDaysOff && (
+                                  <div className="status-message neutral">
+                                    <span className="status-icon">✓</span>
+                                    <span>Exactly at limit - No adjustment</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             
                             {/* Advance Progress */}
                             {totalAdvances > 0 && (

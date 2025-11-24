@@ -1,13 +1,13 @@
-/* 🌟 Global Reset */
+/* 🌟 Enhanced Global Reset */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* 🌌 App Wrapper */
+/* 🌌 Enhanced App Wrapper */
 .app {
   min-height: 100vh;
   min-height: 100dvh;
@@ -15,12 +15,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 20px;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
-/* 🌠 Animated Background */
+/* 🌠 Enhanced Animated Background */
 .background-animation {
   position: fixed;
   inset: 0;
@@ -33,55 +33,151 @@
 .floating-croissant,
 .floating-spoon {
   position: absolute;
-  font-size: 1.7rem;
-  opacity: 0.08;
-  animation: float 6s ease-in-out infinite;
-  filter: drop-shadow(0 2px 4px rgba(255,255,255,0.1));
+  font-size: 1.8rem;
+  opacity: 0.12;
+  animation: floatEnhanced 8s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(255,255,255,0.15));
+  z-index: 1;
 }
 
-.floating-coffee { top: 18%; left: 8%; animation-delay: 0s; }
-.floating-croissant { top: 65%; right: 10%; animation-delay: 2s; }
-.floating-spoon { bottom: 20%; left: 25%; animation-delay: 4s; }
-
-@keyframes float {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-15px) rotate(10deg); }
+.floating-coffee { 
+  top: 15%; 
+  left: 5%; 
+  animation-delay: 0s; 
+  font-size: 2rem;
+}
+.floating-croissant { 
+  top: 70%; 
+  right: 5%; 
+  animation-delay: 2.5s; 
+  font-size: 1.6rem;
+}
+.floating-spoon { 
+  bottom: 15%; 
+  left: 20%; 
+  animation-delay: 5s; 
+  font-size: 1.5rem;
 }
 
-/* 🪞 Landing Container */
+.floating-bubble {
+  position: absolute;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: floatBubble 12s ease-in-out infinite;
+}
+
+.floating-bubble:nth-child(4) {
+  width: 80px;
+  height: 80px;
+  top: 20%;
+  right: 15%;
+  animation-delay: 1s;
+}
+
+.floating-bubble:nth-child(5) {
+  width: 60px;
+  height: 60px;
+  bottom: 25%;
+  right: 20%;
+  animation-delay: 4s;
+}
+
+.floating-bubble:nth-child(6) {
+  width: 100px;
+  height: 100px;
+  top: 60%;
+  left: 10%;
+  animation-delay: 7s;
+}
+
+@keyframes floatEnhanced {
+  0%, 100% { 
+    transform: translateY(0px) rotate(0deg) scale(1);
+    opacity: 0.1;
+  }
+  33% { 
+    transform: translateY(-20px) rotate(5deg) scale(1.05);
+    opacity: 0.15;
+  }
+  66% { 
+    transform: translateY(-10px) rotate(-3deg) scale(0.95);
+    opacity: 0.12;
+  }
+}
+
+@keyframes floatBubble {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1);
+    opacity: 0.3;
+  }
+  25% { 
+    transform: translate(20px, -15px) scale(1.1);
+    opacity: 0.4;
+  }
+  50% { 
+    transform: translate(-15px, -25px) scale(0.9);
+    opacity: 0.2;
+  }
+  75% { 
+    transform: translate(10px, -10px) scale(1.05);
+    opacity: 0.35;
+  }
+}
+
+/* 🪞 Enhanced Landing Container */
 .landing-container {
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   position: relative;
   z-index: 2;
 }
 
-/* 🧭 Main Layout */
+/* 🧭 Enhanced Main Layout */
 .main-content {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 28px;
 }
 
-/* 🏪 Hero Section */
+/* 🏪 Enhanced Hero Section with Logo */
 .hero-section {
   text-align: center;
-  animation: slideUp 0.8s ease-out both;
+  animation: slideUpEnhanced 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
 .main-logo {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   position: relative;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  width: 120px;
+  height: 120px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.logo-icon {
-  font-size: 4rem;
-  display: block;
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 4px 12px rgba(245, 158, 11, 0.3));
+/* Logo Image Styling */
+.hero-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 24px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 4px 16px rgba(245, 158, 11, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border: 3px solid rgba(245, 158, 11, 0.3);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 191, 36, 0.05));
+  position: relative;
+  z-index: 2;
+  transition: all 0.3s ease;
+}
+
+/* Logo Container Effects */
+.logo-container {
+  position: relative;
+  display: inline-block;
 }
 
 .logo-shine {
@@ -89,37 +185,107 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 90px;
-  height: 90px;
-  background: radial-gradient(circle, rgba(245,158,11,0.2) 0%, transparent 70%);
-  border-radius: 50%;
-  animation: pulse 2.2s ease-in-out infinite;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.25) 0%, transparent 70%);
+  border-radius: 30px;
+  animation: pulseEnhanced 2.5s ease-in-out infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Logo Glow Effect */
+.logo-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 130px;
+  height: 130px;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.4) 0%, transparent 60%);
+  border-radius: 28px;
+  filter: blur(12px);
+  animation: glowPulse 3s ease-in-out infinite;
+  z-index: 0;
+  opacity: 0.6;
 }
 
 .hero-title {
-  font-size: 2.4rem;
+  font-size: 2.6rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 100%);
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .brand-accent {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  position: relative;
+}
+
+.brand-accent::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #f59e0b, transparent);
+  animation: shimmer 3s ease-in-out infinite;
 }
 
 .hero-subtitle {
   color: #94a3b8;
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 500;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  margin-top: 4px;
 }
 
-/* 💳 Access Section */
+/* Login Page Logo Styling */
+.login-container .cafe-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.login-container .cafe-logo {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 20px;
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.2),
+    0 3px 10px rgba(245, 158, 11, 0.15);
+  border: 2px solid rgba(245, 158, 11, 0.2);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 191, 36, 0.05));
+}
+
+.login-container .logo-shine {
+  width: 90px;
+  height: 90px;
+  border-radius: 22px;
+}
+
+/* 💳 Enhanced Access Section */
 .access-section {
-  animation: slideUp 0.8s ease-out 0.2s both;
+  animation: slideUpEnhanced 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s both;
 }
 
 .access-cards {
@@ -129,19 +295,18 @@
 }
 
 .access-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  padding: 24px;
-  border-radius: 22px;
-  box-shadow: 0 8px 28px rgba(0,0,0,0.1);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(24px);
+  padding: 26px;
+  border-radius: 24px;
+  box-shadow: 
+    0 8px 32px rgba(0,0,0,0.12),
+    0 2px 8px rgba(0,0,0,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.4);
   position: relative;
   overflow: hidden;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-}
-
-.access-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 36px rgba(0,0,0,0.15);
+  transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border: 1px solid rgba(255,255,255,0.3);
 }
 
 .access-card::before {
@@ -149,21 +314,45 @@
   position: absolute;
   top: 0;
   left: 0;
-  height: 3px;
+  height: 4px;
   width: 100%;
+  background: linear-gradient(90deg, var(--start), var(--end));
 }
 
-.staff-card::before {
-  background: linear-gradient(90deg, #10b981, #059669);
+.staff-card {
+  --start: #10b981;
+  --end: #059669;
 }
-.admin-card::before {
-  background: linear-gradient(90deg, #ef4444, #dc2626);
+
+.admin-card {
+  --start: #ef4444;
+  --end: #dc2626;
+}
+
+.access-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  transition: left 0.6s ease;
+}
+
+.access-card:hover::after {
+  left: 100%;
+}
+
+.access-card:active {
+  transform: scale(0.98);
 }
 
 .card-icon {
-  font-size: 2.2rem;
-  margin-bottom: 12px;
+  font-size: 2.4rem;
+  margin-bottom: 16px;
   text-align: center;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
 }
 
 .card-content {
@@ -172,187 +361,278 @@
 
 .card-content h3 {
   color: #1e293b;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   font-weight: 700;
+  margin-bottom: 6px;
 }
 
 .card-content p {
   color: #64748b;
-  font-size: 0.9rem;
-  margin: 4px 0 12px;
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+  line-height: 1.4;
 }
 
 .feature-list {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 0 0 20px 0;
 }
 
 .feature-list li {
   color: #475569;
-  font-size: 0.85rem;
-  padding: 3px 0;
+  font-size: 0.88rem;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.feature-list li::before {
+  content: "•";
+  color: #f59e0b;
+  font-weight: bold;
 }
 
 .access-btn {
   width: 100%;
-  padding: 14px;
+  padding: 16px;
   border: none;
-  border-radius: 12px;
-  font-size: 1rem;
+  border-radius: 14px;
+  font-size: 1.05rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin-top: 8px;
-  transition: all 0.2s ease;
+  gap: 10px;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+  overflow: hidden;
+}
+
+.access-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.6s ease;
+}
+
+.access-btn:hover::before {
+  left: 100%;
 }
 
 .staff-btn {
   background: linear-gradient(135deg, #10b981, #059669);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
 }
 
 .admin-btn {
   background: linear-gradient(135deg, #ef4444, #dc2626);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
 }
 
 .access-btn:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
-/* ⚙️ Features Section */
+.btn-icon {
+  font-size: 1.1rem;
+}
+
+/* ⚙️ Enhanced Features Section */
 .features-section {
-  animation: slideUp 0.8s ease-out 0.4s both;
+  animation: slideUpEnhanced 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s both;
+}
+
+.features-title {
+  text-align: center;
+  color: #e2e8f0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  opacity: 0.9;
 }
 
 .features-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 14px;
 }
 
 .feature-item {
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.15);
-  color: #e2e8f0;
-  border-radius: 12px;
-  padding: 12px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.08));
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #f1f5f9;
+  border-radius: 16px;
+  padding: 16px 12px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
-  backdrop-filter: blur(12px);
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: transform 0.2s ease, background 0.2s ease;
+  backdrop-filter: blur(16px);
+  font-size: 0.92rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  text-align: center;
+  flex-direction: column;
+}
+
+.feature-item:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.12));
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
 }
 
 .feature-item:active {
-  transform: scale(0.97);
-  background: rgba(255,255,255,0.18);
+  transform: scale(0.96);
 }
 
-/* 🔒 Security Footer */
+.feature-icon {
+  font-size: 1.4rem;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+/* 🔒 Enhanced Security Footer */
 .security-footer {
   text-align: center;
-  animation: slideUp 0.8s ease-out 0.6s both;
+  animation: slideUpEnhanced 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.6s both;
 }
 
 .security-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.15);
-  color: #cbd5e1;
-  font-size: 0.85rem;
+  gap: 10px;
+  padding: 10px 20px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #e2e8f0;
+  font-size: 0.88rem;
+  font-weight: 500;
+  backdrop-filter: blur(16px);
+  transition: all 0.3s ease;
 }
 
-/* 🔑 Login Form */
+.security-badge:hover {
+  background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08));
+  transform: translateY(-1px);
+}
+
+.lock-icon {
+  font-size: 1rem;
+}
+
+/* 🔑 Enhanced Login Form */
 .login-container {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(22px);
-  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(24px);
+  border-radius: 24px;
   padding: 32px 24px;
   width: 100%;
-  max-width: 380px;
-  box-shadow: 0 8px 36px rgba(0,0,0,0.15);
+  max-width: 400px;
+  box-shadow: 
+    0 20px 60px rgba(0,0,0,0.2),
+    0 8px 32px rgba(0,0,0,0.1);
+  border: 1px solid rgba(255,255,255,0.3);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 32px;
 }
 
-.cafe-logo {
-  font-size: 2.6rem;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.brand-text h1 {
+.login-container .brand-text h1 {
   color: #1e293b;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 700;
+  margin-bottom: 4px;
 }
 
-.cafe-subtitle {
+.login-container .cafe-subtitle {
   color: #64748b;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .input-label {
   font-weight: 600;
   color: #374151;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 
 .form-input {
-  padding: 14px;
-  border-radius: 12px;
+  padding: 16px;
+  border-radius: 14px;
   border: 2px solid #e2e8f0;
   font-size: 1rem;
-  transition: all 0.2s ease;
-  background: rgba(248, 250, 252, 0.85);
+  transition: all 0.3s ease;
+  background: rgba(248, 250, 252, 0.9);
+  font-weight: 500;
 }
 
 .form-input:focus {
   border-color: #f59e0b;
-  box-shadow: 0 0 0 3px rgba(245,158,11,0.15);
+  box-shadow: 0 0 0 4px rgba(245,158,11,0.18);
   background: #fff;
   outline: none;
+  transform: translateY(-1px);
 }
 
-/* 🟡 Login Button */
+/* 🟡 Enhanced Login Button */
 .login-btn {
-  padding: 14px;
+  padding: 16px;
   background: linear-gradient(135deg, #f59e0b, #d97706);
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   color: #fff;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.05rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  transition: all 0.2s ease;
+  gap: 10px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.login-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.6s ease;
+}
+
+.login-btn:hover::before {
+  left: 100%;
 }
 
 .login-btn:active {
@@ -360,62 +640,212 @@
 }
 
 .spinner {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border: 2px solid transparent;
   border-top: 2px solid #fff;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spinEnhanced 0.8s linear infinite;
 }
 
-/* 🕹️ Switch Button */
+/* 🕹️ Enhanced Switch Button */
 .form-switch {
   text-align: center;
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
 .back-btn {
   background: none;
   border: none;
   color: #64748b;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 500;
-  padding: 8px 12px;
-  border-radius: 8px;
-  transition: all 0.2s ease;
+  padding: 10px 16px;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.back-btn:hover {
+  background: rgba(100,116,139,0.1);
+  color: #374151;
 }
 
 .back-btn:active {
-  background: rgba(100,116,139,0.1);
+  transform: scale(0.95);
 }
 
-/* 🌈 Animations */
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
+/* 🌈 Enhanced Animations */
+@keyframes slideUpEnhanced {
+  from { 
+    opacity: 0; 
+    transform: translateY(40px) scale(0.95); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+  }
 }
 
-@keyframes pulse {
-  0%,100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(1.1); }
+@keyframes pulseEnhanced {
+  0%, 100% { 
+    opacity: 0.4; 
+    transform: scale(1); 
+  }
+  50% { 
+    opacity: 0.7; 
+    transform: scale(1.15); 
+  }
 }
 
-@keyframes spin {
+@keyframes glowPulse {
+  0%, 100% { 
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% { 
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+
+@keyframes spinEnhanced {
   to { transform: rotate(360deg); }
 }
 
-/* 📱 Tablet */
+@keyframes shimmer {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* 📱 Enhanced Mobile Responsiveness */
+@media (max-width: 380px) {
+  .app {
+    padding: 16px;
+  }
+  
+  .hero-title {
+    font-size: 2.2rem;
+  }
+  
+  .main-logo {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .hero-logo {
+    border-radius: 20px;
+  }
+  
+  .logo-shine {
+    width: 120px;
+    height: 120px;
+    border-radius: 25px;
+  }
+  
+  .logo-glow {
+    width: 110px;
+    height: 110px;
+    border-radius: 23px;
+  }
+  
+  .access-card {
+    padding: 22px;
+  }
+  
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .feature-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 14px 16px;
+  }
+  
+  .login-container .cafe-logo {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .login-container .logo-shine {
+    width: 80px;
+    height: 80px;
+  }
+}
+
 @media (min-width: 768px) {
-  .landing-container { max-width: 440px; }
-  .access-card { padding: 28px; }
+  .landing-container { 
+    max-width: 460px; 
+  }
+  
+  .access-card { 
+    padding: 30px; 
+  }
+  
+  .hero-title {
+    font-size: 2.8rem;
+  }
+  
+  .main-logo {
+    width: 140px;
+    height: 140px;
+  }
+  
+  .logo-shine {
+    width: 160px;
+    height: 160px;
+  }
+  
+  .logo-glow {
+    width: 150px;
+    height: 150px;
+  }
 }
 
-/* ♿ Reduced Motion */
+/* ♿ Enhanced Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
+  * { 
+    animation-duration: 0.01ms !important; 
+    animation-iteration-count: 1 !important; 
+    transition-duration: 0.01ms !important; 
+  }
 }
 
-/* 🧠 iOS Fix */
+/* 🧠 Enhanced iOS Fix */
 @supports (-webkit-touch-callout: none) {
-  .app { min-height: -webkit-fill-available; }
+  .app { 
+    min-height: -webkit-fill-available; 
+  }
+  
+  .access-card,
+  .login-container {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+}
+
+/* 📱 Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .access-card:hover,
+  .access-btn:hover,
+  .feature-item:hover,
+  .security-badge:hover {
+    transform: none;
+  }
+  
+  .access-card:active,
+  .access-btn:active,
+  .feature-item:active {
+    transform: scale(0.98);
+  }
+}
+
+/* 🎯 Focus Visible for Accessibility */
+.access-btn:focus-visible,
+.back-btn:focus-visible,
+.form-input:focus-visible {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
 }

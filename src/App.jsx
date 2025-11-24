@@ -21,6 +21,9 @@ import SalaryView from "./Pages/StaffDashboard/SalaryView.jsx";
 import RequestAdvance from "./Pages/StaffDashboard/RequestAdvance.jsx";
 import StaffAvailability from "./Pages/StaffDashboard/StaffAvailability.jsx";
 
+// Import Logo
+import CafeLogo from "./Logo/logo.PNG";
+
 // Register service worker for notifications
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
@@ -32,49 +35,39 @@ if ("serviceWorker" in navigator) {
 function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
-
-  // Admin login states
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [adminLoggedIn, setAdminLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Staff login states
   const [staffLoggedIn, setStaffLoggedIn] = useState(false);
   const [staffData, setStaffData] = useState(null);
 
-  // Admin credentials
   const ADMIN_CREDENTIALS = {
     email: "admin@cafepiranha.com",
     password: "cafepirana2024"
   };
 
-  // Check if user is already logged in on app start
-  // Add this useEffect to handle iOS-specific issues
-// Add this useEffect to handle environment checks
-useEffect(() => {
-  console.log("User Agent:", navigator.userAgent);
-  console.log("Notification API available:", typeof Notification !== 'undefined');
-  console.log("Service Worker available:", 'serviceWorker' in navigator);
+  useEffect(() => {
+    console.log("User Agent:", navigator.userAgent);
+    console.log("Notification API available:", typeof Notification !== 'undefined');
+    console.log("Service Worker available:", 'serviceWorker' in navigator);
 
-  const unsubscribe = auth.onAuthStateChanged(async (user) => {
-    if (user && user.email === ADMIN_CREDENTIALS.email) {
-      setAdminLoggedIn(true);
-      console.log("Admin logged in successfully");
-      
-      // Only try notifications if in supported environment
-      if (typeof Notification !== 'undefined') {
-        await notificationManager.requestPermission(user.uid);
-      } else {
-        console.log("Skipping notifications - Notification API not available");
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user && user.email === ADMIN_CREDENTIALS.email) {
+        setAdminLoggedIn(true);
+        console.log("Admin logged in successfully");
+        
+        if (typeof Notification !== 'undefined') {
+          await notificationManager.requestPermission(user.uid);
+        } else {
+          console.log("Skipping notifications - Notification API not available");
+        }
       }
-    }
-  });
+    });
 
-  return () => unsubscribe();
-}, []);
+    return () => unsubscribe();
+  }, []);
 
-  // Staff Login Handler
   const handleStaffLogin = (staff) => {
     console.log("Staff logged in:", staff);
     setStaffData(staff);
@@ -82,7 +75,6 @@ useEffect(() => {
     setShowLogin(false);
   };
 
-  // Admin Login Handler
   const handleAdminLogin = async (e) => {
     e.preventDefault();
     
@@ -102,7 +94,6 @@ useEffect(() => {
         setAdminEmail("");
         setAdminPassword("");
         setShowAdminLogin(false);
-        // Request notification permission
         await notificationManager.requestPermission(user.uid);
       } else {
         await signOut(auth);
@@ -146,7 +137,6 @@ useEffect(() => {
     setAdminPassword("");
   };
 
-  // Show admin dashboard if admin is logged in
   if (adminLoggedIn) {
     return (
       <Router>
@@ -162,7 +152,6 @@ useEffect(() => {
     );
   }
 
-  // Show staff dashboard if staff is logged in
   if (staffLoggedIn) {
     return (
       <Router>
@@ -177,15 +166,16 @@ useEffect(() => {
     );
   }
 
-  // Show admin login if admin login is requested
   if (showAdminLogin) {
     return (
       <div className="app">
-        <div className="login-container">
-          {/* Cafe Piranha Branding */}
+        <div className="login-container admin-login">
+          {/* Cafe Piranha Branding with Logo */}
           <div className="login-header">
             <div className="cafe-brand">
-              <div className="cafe-logo">🏪</div>
+              <div className="cafe-logo">
+                <img src={CafeLogo} alt="Cafe Piranha" className="logo-image" />
+              </div>
               <div className="brand-text">
                 <h1 className="cafe-name">Cafe Piranha</h1>
                 <p className="cafe-subtitle">Admin Portal</p>
@@ -205,7 +195,7 @@ useEffect(() => {
               <input
                 id="adminEmail"
                 type="email"
-                placeholder="Enter admin email"
+                placeholder="admin@cafepiranha.com"
                 value={adminEmail}
                 onChange={(e) => setAdminEmail(e.target.value)}
                 className="form-input"
@@ -220,7 +210,7 @@ useEffect(() => {
               <input
                 id="adminPassword"
                 type="password"
-                placeholder="Enter admin password"
+                placeholder="Enter your password"
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
                 className="form-input"
@@ -230,7 +220,7 @@ useEffect(() => {
 
             <button 
               type="submit" 
-              className={`login-btn ${isLoading ? 'loading' : ''}`}
+              className={`login-btn admin-login-btn ${isLoading ? 'loading' : ''}`}
               disabled={isLoading}
             >
               {isLoading ? (
@@ -258,7 +248,6 @@ useEffect(() => {
     );
   }
 
-  // Show login page if staff login is requested
   if (showLogin) {
     return (
       <Login 
@@ -278,6 +267,9 @@ useEffect(() => {
           <div className="floating-coffee">☕</div>
           <div className="floating-croissant">🥐</div>
           <div className="floating-spoon">🥄</div>
+          <div className="floating-bubble"></div>
+          <div className="floating-bubble"></div>
+          <div className="floating-bubble"></div>
         </div>
 
         {/* Main Content */}
@@ -286,7 +278,7 @@ useEffect(() => {
           <div className="hero-section">
             <div className="logo-container">
               <div className="main-logo">
-                <span className="logo-icon">🏪</span>
+                <img src={CafeLogo} alt="Cafe Piranha" className="hero-logo" />
                 <div className="logo-shine"></div>
               </div>
               <h1 className="hero-title">
@@ -351,6 +343,7 @@ useEffect(() => {
 
           {/* Quick Features */}
           <div className="features-section">
+            <h3 className="features-title">Everything You Need</h3>
             <div className="features-grid">
               <div className="feature-item">
                 <div className="feature-icon">⏰</div>
