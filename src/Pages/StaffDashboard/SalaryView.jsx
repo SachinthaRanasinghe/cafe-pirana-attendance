@@ -18,6 +18,7 @@ export default function SalaryView({ staffData, onLogout }) {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().substring(0, 7));
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [serviceCharge, setServiceCharge] = useState(0);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -88,9 +89,23 @@ export default function SalaryView({ staffData, onLogout }) {
     return () => unsubscribe();
   }, [uid]);
 
-  // Calculate current month stats with proper adjustments
+  // Fetch service charge (shared amount) - FOR DISPLAY ONLY
+  useEffect(() => {
+    const serviceChargeRef = doc(db, "systemConfig", "serviceCharge");
+    const unsubscribe = onSnapshot(serviceChargeRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setServiceCharge(snapshot.data().amount || 0);
+      } else {
+        setServiceCharge(0);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Calculate current month stats WITHOUT adding service charge to net salary
   const calculateMonthStats = () => {
     const basicSalary = salary?.monthlySalary || 0;
+    const serviceChargeAmount = serviceCharge || 0;
     
     // Calculate approved advances for current month
     const currentMonthAdvances = advanceRequests
@@ -115,6 +130,7 @@ export default function SalaryView({ staffData, onLogout }) {
         return sum;
       }, 0);
 
+    // NET SALARY CALCULATION: DO NOT ADD SERVICE CHARGE
     const netSalary = Math.max(0, basicSalary + currentMonthAdjustments - currentMonthAdvances);
 
     return {
@@ -123,6 +139,7 @@ export default function SalaryView({ staffData, onLogout }) {
       adjustments: currentMonthAdjustments,
       netSalary,
       remainingSalary: Math.max(0, basicSalary - currentMonthAdvances),
+      serviceCharge: serviceChargeAmount, // Only for display
       otAmount: adjustmentRequests
         .filter(req => {
           const requestMonth = req.shiftMonth || req.month;
@@ -390,6 +407,13 @@ export default function SalaryView({ staffData, onLogout }) {
                         <span className="breakdown-label">Base Salary</span>
                         <span className="breakdown-value">{formatCurrency(monthStats.basicSalary)}</span>
                       </div>
+                      {/* Service Charge - DISPLAY ONLY, not added to net salary */}
+                      {monthStats.serviceCharge > 0 && (
+                        <div className="breakdown-item info">
+                          <span className="breakdown-label">Service Charge</span>
+                          <span className="breakdown-value">{formatCurrency(monthStats.serviceCharge)}</span>
+                        </div>
+                      )}
                       {monthStats.otAmount > 0 && (
                         <div className="breakdown-item positive">
                           <span className="breakdown-label">Overtime</span>
@@ -420,6 +444,15 @@ export default function SalaryView({ staffData, onLogout }) {
                       <div className="stat-content">
                         <div className="stat-value">{formatCurrency(monthStats.basicSalary)}</div>
                         <div className="stat-label">Base Salary</div>
+                      </div>
+                    </div>
+
+                    {/* Service Charge Stat - DISPLAY ONLY */}
+                    <div className="stat-card">
+                      <div className="stat-icon info">💡</div>
+                      <div className="stat-content">
+                        <div className="stat-value">{formatCurrency(monthStats.serviceCharge)}</div>
+                        <div className="stat-label">Service Charge</div>
                       </div>
                     </div>
                     

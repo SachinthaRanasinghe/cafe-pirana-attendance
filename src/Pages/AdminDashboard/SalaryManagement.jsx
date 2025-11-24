@@ -33,6 +33,10 @@ export default function SalaryManagement({ onLogout }) {
   const [staffDaysOff, setStaffDaysOff] = useState({});
   const [showDayOffConfig, setShowDayOffConfig] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [serviceCharge, setServiceCharge] = useState(0);
+  const [serviceChargeInput, setServiceChargeInput] = useState("");
+  const [serviceChargeSaving, setServiceChargeSaving] = useState(false);
+  const [serviceChargeUpdatedAt, setServiceChargeUpdatedAt] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -62,6 +66,31 @@ export default function SalaryManagement({ onLogout }) {
       }
     };
     fetchDayOffRates();
+  }, []);
+
+  // Fetch service charge configuration
+  useEffect(() => {
+    const serviceChargeRef = doc(db, "systemConfig", "serviceCharge");
+    const unsubscribe = onSnapshot(
+      serviceChargeRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          const amount = data.amount ?? 0;
+          setServiceCharge(amount);
+          setServiceChargeInput(amount?.toString() || "");
+          setServiceChargeUpdatedAt(data.updatedAt || null);
+        } else {
+          setServiceCharge(0);
+          setServiceChargeInput("");
+          setServiceChargeUpdatedAt(null);
+        }
+      },
+      (error) => {
+        console.error("Error fetching service charge:", error);
+      }
+    );
+    return () => unsubscribe();
   }, []);
 
   // Calculate monthly days off for all staff
@@ -373,8 +402,9 @@ export default function SalaryManagement({ onLogout }) {
     const advances = getTotalAdvances(staffUid);
     const adjustments = getTotalAdjustments(staffUid);
     const dayOffAdjustment = getDayOffAdjustment(staffUid);
+    const sharedServiceCharge = serviceCharge || 0;
     
-    return Math.max(0, monthlySalary + adjustments + dayOffAdjustment - advances);
+    return Math.max(0, monthlySalary + adjustments + dayOffAdjustment + sharedServiceCharge - advances);
   };
 
   // Calculate advance usage percentage
@@ -477,6 +507,33 @@ export default function SalaryManagement({ onLogout }) {
     }
   };
 
+  const handleSaveServiceCharge = async () => {
+    if (serviceChargeInput === "") {
+      alert("Please enter a service charge amount.");
+      return;
+    }
+
+    const amount = parseFloat(serviceChargeInput);
+    if (Number.isNaN(amount) || amount < 0) {
+      alert("Please enter a valid service charge amount.");
+      return;
+    }
+
+    setServiceChargeSaving(true);
+    try {
+      await setDoc(doc(db, "systemConfig", "serviceCharge"), {
+        amount,
+        updatedAt: new Date().toISOString(),
+      });
+      alert("Service charge updated successfully.");
+    } catch (error) {
+      console.error("Error saving service charge:", error);
+      alert("Error saving service charge: " + error.message);
+    } finally {
+      setServiceChargeSaving(false);
+    }
+  };
+
   return (
     <div className="salary-management">
       {/* Professional Mobile Header */}
@@ -551,6 +608,15 @@ export default function SalaryManagement({ onLogout }) {
               </div>
             </div>
             
+            <div className="metric-card">
+              <div className="metric-icon service-charge">💡</div>
+              <div className="metric-content">
+                <h3 className="metric-value">{formatCurrency(serviceCharge || 0)}</h3>
+                <p className="metric-label">Service Charge</p>
+                <span className="metric-subtext">Shared per staff</span>
+              </div>
+            </div>
+            
             <div className="metric-card highlight">
               <div className="metric-icon salary-set">💰</div>
               <div className="metric-content">
@@ -609,6 +675,13 @@ export default function SalaryManagement({ onLogout }) {
               <span className="tab-icon">📋</span>
               <span className="tab-text">View All</span>
               <span className="tab-badge">{Object.keys(salaries).length}</span>
+            </button>
+            <button 
+              className={`tab-btn ${activeTab === "serviceCharge" ? "active" : ""}`}
+              onClick={() => setActiveTab("serviceCharge")}
+            >
+              <span className="tab-icon">💡</span>
+              <span className="tab-text">Service Charge</span>
             </button>
           </div>
         </section>
@@ -909,6 +982,72 @@ export default function SalaryManagement({ onLogout }) {
             </div>
           )}
 
+          {/* Service Charge Tab */}
+          {activeTab === "serviceCharge" && (
+            <div className="tab-panel">
+              <section className="content-section">
+                <div className="section-header">
+                  <h2>Service Charge</h2>
+                  <div className="section-badge">
+                    {serviceCharge !== null ? formatCurrency(serviceCharge) : "Not set"}
+                  </div>
+                </div>
+
+                <div className="service-charge-card">
+                  <div className="current-value">
+                    <div className="value-label">Current Amount</div>
+                    <div className="value-amount">
+                      {formatCurrency(serviceCharge || 0)}
+                    </div>
+                    {serviceChargeUpdatedAt && (
+                      <div className="value-updated">
+                        Updated {new Date(serviceChargeUpdatedAt).toLocaleString()}
+                      </div>
+                    )}
+                    <p className="value-note">
+                      This amount is shared with every staff member and does not reset monthly.
+                    </p>
+                  </div>
+
+                  <div className="service-charge-form">
+                    <div className="form-group">
+                      <label className="form-label">Update Service Charge (LKR)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        min="0"
+                        step="100"
+                        value={serviceChargeInput}
+                        onChange={(e) => setServiceChargeInput(e.target.value)}
+                      />
+                      <span className="form-help">
+                        Enter the total service charge amount per staff member.
+                      </span>
+                    </div>
+
+                    <button
+                      className={`btn-primary ${serviceChargeSaving ? "loading" : ""}`}
+                      onClick={handleSaveServiceCharge}
+                      disabled={serviceChargeSaving}
+                    >
+                      {serviceChargeSaving ? (
+                        <>
+                          <div className="loading-spinner-small"></div>
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="btn-icon">💾</span>
+                          <span>Save Service Charge</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
           {/* View Tab */}
           {activeTab === "view" && (
             <div className="tab-panel">
@@ -1020,6 +1159,15 @@ export default function SalaryManagement({ onLogout }) {
                                   <div className="summary-item warning">
                                     <span className="summary-label">Advances</span>
                                     <span className="summary-value">-{formatCurrency(totalAdvances)}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {serviceCharge > 0 && (
+                                <div className="summary-section">
+                                  <div className="summary-item positive">
+                                    <span className="summary-label">Service Charge</span>
+                                    <span className="summary-value">+{formatCurrency(serviceCharge)}</span>
                                   </div>
                                 </div>
                               )}
