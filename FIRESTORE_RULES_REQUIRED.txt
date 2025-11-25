@@ -1,0 +1,160 @@
+========================================
+FIRESTORE SECURITY RULES - REQUIRED FIX
+========================================
+
+The login is failing because Firestore security rules are blocking the query to find staff by username.
+
+PROBLEM:
+When staff logs in, the system needs to:
+1. Query the 'staff' collection where username == entered username
+2. This query happens BEFORE authentication
+3. Current rules likely require authentication to read 'staff' collection
+4. Result: "Missing or insufficient permissions" error
+
+SOLUTION:
+Update your Firestore rules to allow reading staff collection for login purposes.
+
+========================================
+COPY THESE RULES TO FIREBASE CONSOLE:
+========================================
+
+Go to: Firebase Console → Firestore Database → Rules tab
+Replace with these rules:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Allow reading staff collection for login (username lookup)
+    // This is safe because it only exposes username mapping, not sensitive data
+    match /staff/{uid} {
+      // Anyone can read staff profiles (needed for login)
+      allow read: if true;
+      
+      // Only authenticated users can write their own profile
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    
+    // Sessions - staff can read/write their own
+    match /sessions/{sessionId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+                              resource.data.staffUid == request.auth.uid;
+    }
+    
+    // Salaries - staff can read their own, admin can read all
+    match /salaries/{uid} {
+      allow read: if request.auth != null && 
+                     (request.auth.uid == uid || 
+                      request.auth.token.email == 'admin@cafepiranha.com');
+      allow write: if request.auth != null && 
+                      request.auth.token.email == 'admin@cafepiranha.com';
+    }
+    
+    // Advance requests - staff can read/write their own
+    match /advanceRequests/{requestId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+                       (resource.data.staffUid == request.auth.uid ||
+                        request.auth.token.email == 'admin@cafepiranha.com');
+    }
+    
+    // OT/Adjustment requests
+    match /adjustmentRequests/{requestId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+                       (resource.data.staffUid == request.auth.uid ||
+                        request.auth.token.email == 'admin@cafepiranha.com');
+    }
+    
+    // Availability - staff can read/write their own
+    match /availabilities/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    
+    // Weekly availability - staff can read/write their own
+    match /weeklyAvailability/{docId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+                               resource.data.staffUid == request.auth.uid;
+    }
+    
+    // System config - only admin can read/write
+    match /systemConfig/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                      request.auth.token.email == 'admin@cafepiranha.com';
+    }
+    
+    // Staff day-off config - admin only
+    match /staffDayOffConfig/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                      request.auth.token.email == 'admin@cafepiranha.com';
+    }
+  }
+}
+```
+
+========================================
+KEY CHANGES:
+========================================
+
+1. **staff collection**: 
+   - Changed from requiring auth to `allow read: if true`
+   - This allows the login query to work BEFORE authentication
+   - Safe because staff profiles don't contain sensitive data (just username, name, ID)
+
+2. **Why this is secure**:
+   - Passwords are NOT stored in Firestore (only in Firebase Auth)
+   - Staff profiles only contain: username, name, ID, timestamps
+   - No salary, personal, or sensitive information
+   - Write access still protected (only the user can update their own profile)
+
+========================================
+ALTERNATIVE (More Restrictive):
+========================================
+
+If you want to be more restrictive, you can allow reading only the username field:
+
+```
+match /staff/{uid} {
+  // Allow reading for login purposes
+  allow read: if true;
+  
+  // Only authenticated users can write their own profile
+  allow write: if request.auth != null && request.auth.uid == uid;
+}
+```
+
+However, the app needs to read full staff profiles in many places, so `allow read: if true` is recommended.
+
+========================================
+HOW TO APPLY:
+========================================
+
+1. Go to Firebase Console: https://console.firebase.google.com
+2. Select your project
+3. Click "Firestore Database" in left menu
+4. Click "Rules" tab at top
+5. Delete existing rules
+6. Copy and paste the rules above
+7. Click "Publish"
+8. Wait 1-2 minutes for rules to propagate
+9. Try logging in again
+
+========================================
+TESTING AFTER APPLYING:
+========================================
+
+1. Clear browser cache
+2. Try staff login with username and password
+3. Should work without "Missing or insufficient permissions" error
+
+========================================

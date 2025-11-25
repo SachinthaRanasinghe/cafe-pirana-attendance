@@ -14,6 +14,8 @@ import SalaryManagement from "./Pages/AdminDashboard/SalaryManagement.jsx";
 import AdvanceRequests from "./Pages/AdminDashboard/AdvanceRequests.jsx";
 import OTApprovals from "./Pages/AdminDashboard/OTApprovals.jsx";
 import StaffAvailabilityView from "./Pages/AdminDashboard/StaffAvailabilityView.jsx";
+import StaffAccounts from "./Pages/AdminDashboard/StaffAccounts.jsx";
+import MonthlyDayOffReport from "./Pages/AdminDashboard/MonthlyDayOffReport.jsx";
 
 // Staff Pages  
 import StaffDashboard from "./Pages/StaffDashboard/StaffDashboard.jsx";
@@ -143,9 +145,11 @@ function App() {
         <Routes>
           <Route path="/admin" element={<AdminDashboard onLogout={handleAdminLogout} />} />
           <Route path="/admin/salary" element={<SalaryManagement onLogout={handleAdminLogout} />} />
+          <Route path="/admin/accounts" element={<StaffAccounts onLogout={handleAdminLogout} />} />
           <Route path="/admin/advances" element={<AdvanceRequests onLogout={handleAdminLogout} />} />
           <Route path="/admin/ot-approvals" element={<OTApprovals onLogout={handleAdminLogout} />} />
           <Route path="/admin/availability" element={<StaffAvailabilityView onLogout={handleAdminLogout} />} />
+          <Route path="/admin/dayoff-report" element={<MonthlyDayOffReport onLogout={handleAdminLogout} />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </Router>

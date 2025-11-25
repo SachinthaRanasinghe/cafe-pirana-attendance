@@ -13,6 +13,7 @@ import {
 import { db } from "../../firebase";
 import "./StaffDashboard.css";
 import { useNavigate, useLocation } from "react-router-dom";
+import { getCurrentMonthRunningDaysOff } from "../../config/dayOffRates";
 
 export default function StaffDashboard({ staffData, onLogout }) {
   const [isClockedIn, setIsClockedIn] = useState(false);
@@ -28,6 +29,10 @@ export default function StaffDashboard({ staffData, onLogout }) {
   const [locationMessage, setLocationMessage] = useState("");
   const [locationAllowed, setLocationAllowed] = useState(null);
   const [userCoords, setUserCoords] = useState(null);
+
+  // Day-off warning states
+  const [dayOffData, setDayOffData] = useState(null);
+  const [loadingDayOff, setLoadingDayOff] = useState(true);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -200,6 +205,29 @@ export default function StaffDashboard({ staffData, onLogout }) {
     };
   };
   
+
+  // === Load current month day-off data ===
+  useEffect(() => {
+    const loadDayOffData = async () => {
+      if (!uid) return;
+      
+      setLoadingDayOff(true);
+      try {
+        const data = await getCurrentMonthRunningDaysOff(uid);
+        setDayOffData(data);
+      } catch (error) {
+        console.error("Error loading day-off data:", error);
+      } finally {
+        setLoadingDayOff(false);
+      }
+    };
+
+    loadDayOffData();
+    
+    // Refresh day-off data every hour
+    const interval = setInterval(loadDayOffData, 3600000);
+    return () => clearInterval(interval);
+  }, [uid]);
 
   // === Real-time Firestore listener ===
   useEffect(() => {
@@ -641,6 +669,44 @@ export default function StaffDashboard({ staffData, onLogout }) {
             </div>
           </div>
         </section>
+
+        {/* Day-Off Warning Alert (Only when exceeding limit) */}
+        {!loadingDayOff && dayOffData && dayOffData.status === 'over-limit' && (
+          <section className="dayoff-alert-section">
+            <div className="alert-card warning">
+              <div className="alert-icon">⚠️</div>
+              <div className="alert-content">
+                <h3 className="alert-title">Day-Off Limit Exceeded</h3>
+                <p className="alert-message">
+                  You have taken <strong>{dayOffData.daysOff} days off</strong> this month, 
+                  which exceeds your limit of <strong>{dayOffData.threshold} days</strong>.
+                </p>
+                <div className="alert-calculation">
+                  <div className="calc-row">
+                    <span className="calc-label">Days Off Taken So Far:</span>
+                    <span className="calc-value">{dayOffData.daysOff} days</span>
+                  </div>
+                  <div className="calc-row">
+                    <span className="calc-label">Allowed Limit:</span>
+                    <span className="calc-value">{dayOffData.threshold} days</span>
+                  </div>
+                  <div className="calc-row">
+                    <span className="calc-label">Excess Days:</span>
+                    <span className="calc-value excess">{dayOffData.excessDays} days</span>
+                  </div>
+                </div>
+                <div className="alert-note warning-note">
+                  <span className="note-icon">⚠️</span>
+                  <span>
+                    <strong>Warning:</strong> You are currently over your day-off limit. 
+                    Deductions will be calculated and applied to your salary on the 1st of next month. 
+                    Deduction rate: Rs. {dayOffData.deductionPerDay}/day over limit.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Clock Control Section */}
         <section className="clock-section">

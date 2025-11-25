@@ -1262,3 +1262,307 @@
 .dashboard-main::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
 }
+/* === Day-Off Warning & Status Styles === */
+.dayoff-alert-section {
+  margin-bottom: 20px;
+  animation: slideDown 0.5s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alert-card {
+  background: white;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 20px;
+  border-left: 5px solid #e74c3c;
+}
+
+.alert-card.warning {
+  background: linear-gradient(to right, #fff5f5, white);
+}
+
+.alert-icon {
+  font-size: 48px;
+  flex-shrink: 0;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #e74c3c;
+  margin: 0 0 10px 0;
+}
+
+.alert-message {
+  font-size: 15px;
+  color: #34495e;
+  margin: 0 0 20px 0;
+  line-height: 1.6;
+}
+
+.alert-message strong {
+  color: #e74c3c;
+  font-weight: 700;
+}
+
+.alert-calculation {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.calc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.calc-label {
+  color: #7f8c8d;
+}
+
+.calc-value {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.calc-value.excess {
+  color: #e74c3c;
+}
+
+.calc-value.negative {
+  color: #e74c3c;
+  font-size: 18px;
+}
+
+.calc-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 8px 0;
+}
+
+.calc-row.total {
+  padding-top: 12px;
+  font-size: 16px;
+}
+
+.calc-row.total .calc-label {
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.alert-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: #fff3cd;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #856404;
+  line-height: 1.5;
+}
+
+.alert-note.warning-note {
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+}
+
+.alert-note strong {
+  font-weight: 700;
+}
+
+.note-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* Day-Off Status Card */
+.dayoff-status-section {
+  margin-bottom: 20px;
+}
+
+.status-card {
+  background: white;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-left: 5px solid #95a5a6;
+}
+
+.status-card.over-limit {
+  border-left-color: #e74c3c;
+  background: linear-gradient(to right, #fff5f5, white);
+}
+
+.status-card.under-limit {
+  border-left-color: #27ae60;
+  background: linear-gradient(to right, #f0fff4, white);
+}
+
+.status-card.at-limit {
+  border-left-color: #3498db;
+  background: linear-gradient(to right, #f0f9ff, white);
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #ecf0f1;
+}
+
+.status-icon-large {
+  font-size: 56px;
+}
+
+.status-text h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 5px 0;
+}
+
+.status-summary {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin: 0;
+}
+
+.status-details {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.detail-label {
+  font-size: 12px;
+  color: #95a5a6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.detail-value.positive {
+  color: #27ae60;
+}
+
+.detail-value.negative {
+  color: #e74c3c;
+}
+
+.detail-value.neutral {
+  color: #95a5a6;
+}
+
+.detail-divider {
+  width: 1px;
+  height: 50px;
+  background: #e0e0e0;
+}
+
+.custom-policy-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #667eea;
+  font-weight: 600;
+}
+
+.policy-icon {
+  font-size: 16px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .alert-card {
+    flex-direction: column;
+    padding: 20px;
+  }
+
+  .alert-icon {
+    font-size: 40px;
+  }
+
+  .alert-title {
+    font-size: 18px;
+  }
+
+  .status-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .status-icon-large {
+    font-size: 48px;
+  }
+
+  .status-details {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .detail-divider {
+    width: 100%;
+    height: 1px;
+  }
+
+  .detail-item {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .calc-row {
+    font-size: 12px;
+  }
+
+  .calc-value.negative {
+    font-size: 16px;
+  }
+
+  .detail-value {
+    font-size: 20px;
+  }
+}

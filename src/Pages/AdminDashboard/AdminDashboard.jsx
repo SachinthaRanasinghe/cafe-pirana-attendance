@@ -1055,6 +1055,14 @@ export default function AdminDashboard({ onLogout }) {
         </button>
         
         <button 
+          className={`nav-btn ${isActiveRoute('/admin/accounts') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin/accounts')}
+        >
+          <span className="nav-icon">👥</span>
+          <span className="nav-label">Accounts</span>
+        </button>
+        
+        <button 
           className={`nav-btn ${isActiveRoute('/admin/advances') ? 'active' : ''}`}
           onClick={() => safeNavigate('/admin/advances')}
         >

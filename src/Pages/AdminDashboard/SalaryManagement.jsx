@@ -13,7 +13,7 @@ import {
 import { db } from "../../firebase";
 import "./SalaryManagement.css";
 import { useNavigate, useLocation } from "react-router-dom";
-import { getDayOffRates, saveDayOffRates, calculateMonthlyDaysOff } from "../../config/dayOffRates";
+import { getDayOffRates, saveDayOffRates, calculateMonthlyDaysOff, getEffectiveDayOffConfig, saveStaffDayOffConfig, deleteStaffDayOffConfig, isFirstDayOfMonth } from "../../config/dayOffRates";
 
 export default function SalaryManagement({ onLogout }) {
   const [staffMembers, setStaffMembers] = useState([]);
@@ -33,6 +33,9 @@ export default function SalaryManagement({ onLogout }) {
   const [staffDaysOff, setStaffDaysOff] = useState({});
   const [showDayOffConfig, setShowDayOffConfig] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [staffDayOffConfigs, setStaffDayOffConfigs] = useState({});
+  const [customDayOffConfig, setCustomDayOffConfig] = useState({ maxDaysOff: 4, deductionPerDay: 500, bonusPerDay: 300 });
+  const [useCustomDayOff, setUseCustomDayOff] = useState(false);
   const [serviceCharge, setServiceCharge] = useState(0);
   const [serviceChargeInput, setServiceChargeInput] = useState("");
   const [serviceChargeSaving, setServiceChargeSaving] = useState(false);
@@ -93,17 +96,60 @@ export default function SalaryManagement({ onLogout }) {
     return () => unsubscribe();
   }, []);
 
+  // Load staff-specific day-off configurations
+  useEffect(() => {
+    const loadStaffDayOffConfigs = async () => {
+      if (!staffMembers.length) return;
+      
+      const configs = {};
+      
+      for (const staff of staffMembers) {
+        try {
+          const config = await getEffectiveDayOffConfig(staff.staffUid);
+          configs[staff.staffUid] = config;
+        } catch (error) {
+          console.error(`Error loading day-off config for ${staff.staffName}:`, error);
+          configs[staff.staffUid] = {
+            maxDaysOff: 4,
+            deductionPerDay: 500,
+            bonusPerDay: 300,
+            isCustom: false
+          };
+        }
+      }
+      
+      setStaffDayOffConfigs(configs);
+    };
+    
+    loadStaffDayOffConfigs();
+  }, [staffMembers]);
+
   // Calculate monthly days off for all staff
+  // Only calculated on 1st day of month for previous month
   useEffect(() => {
     const calculateAllStaffDaysOff = async () => {
       if (!staffMembers.length) return;
       
-      const currentMonth = getShiftMonth(new Date());
+      // Only calculate on 1st day of month
+      if (!isFirstDayOfMonth()) {
+        // Not the 1st day - clear any day-off data
+        setStaffDaysOff({});
+        return;
+      }
+      
+      // Calculate for PREVIOUS month only
+      const now = new Date();
+      const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const year = previousMonth.getFullYear();
+      const month = previousMonth.getMonth() + 1;
+      const monthString = `${year}-${month.toString().padStart(2, '0')}`;
+      
       const daysOffData = {};
       
       for (const staff of staffMembers) {
         try {
-          const daysOff = await calculateMonthlyDaysOff(staff.staffUid, currentMonth);
+          // Use false to exclude current week data
+          const daysOff = await calculateMonthlyDaysOff(staff.staffUid, monthString, false);
           daysOffData[staff.staffUid] = daysOff;
         } catch (error) {
           console.error(`Error calculating days off for ${staff.staffName}:`, error);
@@ -295,14 +341,38 @@ export default function SalaryManagement({ onLogout }) {
 
       await setDoc(doc(db, "salaries", staff.staffUid), salaryData);
       
+      // Save staff-specific day-off configuration if custom is enabled
+      if (useCustomDayOff) {
+        await saveStaffDayOffConfig(staff.staffUid, {
+          maxDaysOff: parseInt(customDayOffConfig.maxDaysOff) || 4,
+          deductionPerDay: parseFloat(customDayOffConfig.deductionPerDay) || 500,
+          bonusPerDay: parseFloat(customDayOffConfig.bonusPerDay) || 300,
+          staffName: staff.staffName,
+          staffId: staff.staffId
+        });
+      } else {
+        // Revert to default if custom is disabled
+        await deleteStaffDayOffConfig(staff.staffUid);
+      }
+      
+      // Reload staff day-off configs
+      const updatedConfig = await getEffectiveDayOffConfig(staff.staffUid);
+      setStaffDayOffConfigs(prev => ({
+        ...prev,
+        [staff.staffUid]: updatedConfig
+      }));
+      
       alert(
         `${isEditing ? 'Updated' : 'Set'} salary for ${staff.staffName}: Rs. ${monthlySalary}/month\n` +
-        `OT Rate: Rs. ${salaryData.otRate}/hour`
+        `OT Rate: Rs. ${salaryData.otRate}/hour` +
+        (useCustomDayOff ? '\nCustom day-off policy applied' : '')
       );
       setMonthlySalary("");
       setOtRate("");
       setSelectedStaff(null);
       setIsEditing(false);
+      setUseCustomDayOff(false);
+      setCustomDayOffConfig({ maxDaysOff: 4, deductionPerDay: 500, bonusPerDay: 300 });
     } catch (error) {
       console.error("Error setting salary:", error);
       alert("Error setting salary: " + error.message);
@@ -319,6 +389,24 @@ export default function SalaryManagement({ onLogout }) {
       setOtRate(existingSalary.otRate?.toString() || "200");
       setIsEditing(true);
       setActiveTab("setup");
+      
+      // Load staff-specific day-off config
+      const staffConfig = staffDayOffConfigs[staff.staffUid];
+      if (staffConfig && staffConfig.isCustom) {
+        setUseCustomDayOff(true);
+        setCustomDayOffConfig({
+          maxDaysOff: staffConfig.maxDaysOff,
+          deductionPerDay: staffConfig.deductionPerDay,
+          bonusPerDay: staffConfig.bonusPerDay
+        });
+      } else {
+        setUseCustomDayOff(false);
+        setCustomDayOffConfig({
+          maxDaysOff: dayOffConfig.maxDaysOff,
+          deductionPerDay: dayOffConfig.deductionPerDay,
+          bonusPerDay: dayOffConfig.bonusPerDay
+        });
+      }
     }
   };
 
@@ -377,12 +465,21 @@ export default function SalaryManagement({ onLogout }) {
     return approvedAdvances[staffUid][currentMonth] || 0;
   };
 
-  // Calculate day-off deduction/bonus
+  // Calculate day-off deduction/bonus using staff-specific config
+  // Only calculated on 1st day of month for previous month
   const getDayOffAdjustment = (staffUid) => {
-    if (!dayOffConfig || !staffDaysOff[staffUid]) return 0;
+    // Only apply day-off adjustments on the 1st day of the month
+    if (!isFirstDayOfMonth()) {
+      return 0;
+    }
+    
+    if (!staffDaysOff[staffUid] && staffDaysOff[staffUid] !== 0) return 0;
     
     const daysOff = staffDaysOff[staffUid];
-    const { maxDaysOff, deductionPerDay, bonusPerDay } = dayOffConfig;
+    
+    // Use staff-specific config if available, otherwise use global default
+    const config = staffDayOffConfigs[staffUid] || dayOffConfig;
+    const { maxDaysOff, deductionPerDay, bonusPerDay } = config;
     
     if (daysOff > maxDaysOff) {
       // Deduct for each day over the limit
@@ -398,13 +495,13 @@ export default function SalaryManagement({ onLogout }) {
   };
 
   // Calculate net salary (basic + OT - Short Time - advances - day-off deductions + day-off bonus)
+  // Service charge is NOT included in net salary - shown as reference only
   const calculateNetSalary = (staffUid, monthlySalary) => {
     const advances = getTotalAdvances(staffUid);
     const adjustments = getTotalAdjustments(staffUid);
     const dayOffAdjustment = getDayOffAdjustment(staffUid);
-    const sharedServiceCharge = serviceCharge || 0;
     
-    return Math.max(0, monthlySalary + adjustments + dayOffAdjustment + sharedServiceCharge - advances);
+    return Math.max(0, monthlySalary + adjustments + dayOffAdjustment - advances);
   };
 
   // Calculate advance usage percentage
@@ -613,7 +710,7 @@ export default function SalaryManagement({ onLogout }) {
               <div className="metric-content">
                 <h3 className="metric-value">{formatCurrency(serviceCharge || 0)}</h3>
                 <p className="metric-label">Service Charge</p>
-                <span className="metric-subtext">Shared per staff</span>
+                <span className="metric-subtext">Reference only - not in net salary</span>
               </div>
             </div>
             
@@ -686,13 +783,52 @@ export default function SalaryManagement({ onLogout }) {
           </div>
         </section>
 
+        {/* Day-Off Calculation Notice */}
+        {!isFirstDayOfMonth() && (
+          <section className="dayoff-notice-section">
+            <div className="notice-card info">
+              <div className="notice-icon">📅</div>
+              <div className="notice-content">
+                <h3 className="notice-title">Day-Off Calculations</h3>
+                <p className="notice-message">
+                  Day-off bonuses and deductions are calculated and applied <strong>only on the 1st day of each month</strong> for the previous month's attendance.
+                </p>
+                <p className="notice-submessage">
+                  Staff can see warnings during the month if they exceed their limits, but adjustments are not applied to salaries until the 1st.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {isFirstDayOfMonth() && (
+          <section className="dayoff-notice-section">
+            <div className="notice-card success">
+              <div className="notice-icon">✅</div>
+              <div className="notice-content">
+                <h3 className="notice-title">Day-Off Report Available</h3>
+                <p className="notice-message">
+                  Today is the 1st of the month. Day-off adjustments for last month are now calculated and applied to net salaries below.
+                </p>
+                <button 
+                  className="view-report-btn"
+                  onClick={() => safeNavigate('/admin/dayoff-report')}
+                >
+                  <span className="btn-icon">📊</span>
+                  <span>View Full Day-Off Report</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Day-Off Configuration Section */}
         <section className="dayoff-config-section">
           <div className="config-card">
             <div className="config-header">
               <div className="config-title">
                 <span className="config-icon">📅</span>
-                <h3>Day-Off Policy Configuration</h3>
+                <h3>Default Day-Off Policy Configuration</h3>
               </div>
               <button 
                 className="btn-config-toggle"
@@ -706,10 +842,11 @@ export default function SalaryManagement({ onLogout }) {
             {showDayOffConfig && (
               <div className="config-content">
                 <div className="config-info">
-                  <p>Configure deduction and bonus amounts for staff day-off policy:</p>
+                  <p>Configure default deduction and bonus amounts for staff day-off policy:</p>
                   <ul>
                     <li>If staff takes <strong>more than {dayOffConfig.maxDaysOff} days off</strong> per month → Deduct salary</li>
                     <li>If staff takes <strong>less than {dayOffConfig.maxDaysOff} days off</strong> per month → Add bonus</li>
+                    <li><strong>Note:</strong> Individual staff members can have custom policies set in the Setup tab</li>
                   </ul>
                 </div>
                 
@@ -838,10 +975,30 @@ export default function SalaryManagement({ onLogout }) {
                             setMonthlySalary(existingSalary?.monthlySalary?.toString() || "");
                             setOtRate(existingSalary?.otRate?.toString() || "200");
                             setIsEditing(!!existingSalary);
+                            
+                            // Load staff-specific day-off config
+                            const staffConfig = staffDayOffConfigs[staff.staffUid];
+                            if (staffConfig && staffConfig.isCustom) {
+                              setUseCustomDayOff(true);
+                              setCustomDayOffConfig({
+                                maxDaysOff: staffConfig.maxDaysOff,
+                                deductionPerDay: staffConfig.deductionPerDay,
+                                bonusPerDay: staffConfig.bonusPerDay
+                              });
+                            } else {
+                              setUseCustomDayOff(false);
+                              setCustomDayOffConfig({
+                                maxDaysOff: dayOffConfig.maxDaysOff,
+                                deductionPerDay: dayOffConfig.deductionPerDay,
+                                bonusPerDay: dayOffConfig.bonusPerDay
+                              });
+                            }
                           } else {
                             setMonthlySalary("");
                             setOtRate("200");
                             setIsEditing(false);
+                            setUseCustomDayOff(false);
+                            setCustomDayOffConfig({ maxDaysOff: 4, deductionPerDay: 500, bonusPerDay: 300 });
                           }
                         }}
                         className="form-select"
@@ -929,6 +1086,96 @@ export default function SalaryManagement({ onLogout }) {
                           <span className="info-icon">💡</span>
                           <span>Default rate: Rs. 200/hour. Set custom rate if different.</span>
                         </div>
+                      </div>
+
+                      {/* Custom Day-Off Configuration */}
+                      <div className="form-group">
+                        <div className="custom-config-toggle">
+                          <label className="form-label">
+                            <input
+                              type="checkbox"
+                              checked={useCustomDayOff}
+                              onChange={(e) => setUseCustomDayOff(e.target.checked)}
+                              className="form-checkbox"
+                            />
+                            <span className="checkbox-label">
+                              <span className="checkbox-icon">📅</span>
+                              <span>Use Custom Day-Off Policy</span>
+                            </span>
+                          </label>
+                          <span className="help-text">
+                            {useCustomDayOff 
+                              ? "Custom rates will apply to this staff member" 
+                              : "Using global default policy"}
+                          </span>
+                        </div>
+
+                        {useCustomDayOff && (
+                          <div className="custom-dayoff-config">
+                            <div className="config-info-box">
+                              <span className="info-icon">ℹ️</span>
+                              <p>Set individual day-off policy for {selectedStaff.staffName}</p>
+                            </div>
+
+                            <div className="form-row">
+                              <div className="form-col">
+                                <label className="form-label-small">Days Off Threshold</label>
+                                <input
+                                  type="number"
+                                  value={customDayOffConfig.maxDaysOff}
+                                  onChange={(e) => setCustomDayOffConfig({ 
+                                    ...customDayOffConfig, 
+                                    maxDaysOff: parseInt(e.target.value) || 4 
+                                  })}
+                                  className="form-input-small"
+                                  min="0"
+                                  max="30"
+                                />
+                                <span className="form-help-small">Days allowed</span>
+                              </div>
+
+                              <div className="form-col">
+                                <label className="form-label-small">Deduction Rate (Rs./day)</label>
+                                <input
+                                  type="number"
+                                  value={customDayOffConfig.deductionPerDay}
+                                  onChange={(e) => setCustomDayOffConfig({ 
+                                    ...customDayOffConfig, 
+                                    deductionPerDay: parseFloat(e.target.value) || 500 
+                                  })}
+                                  className="form-input-small"
+                                  min="0"
+                                  step="50"
+                                />
+                                <span className="form-help-small">Per excess day</span>
+                              </div>
+
+                              <div className="form-col">
+                                <label className="form-label-small">Bonus Rate (Rs./day)</label>
+                                <input
+                                  type="number"
+                                  value={customDayOffConfig.bonusPerDay}
+                                  onChange={(e) => setCustomDayOffConfig({ 
+                                    ...customDayOffConfig, 
+                                    bonusPerDay: parseFloat(e.target.value) || 300 
+                                  })}
+                                  className="form-input-small"
+                                  min="0"
+                                  step="50"
+                                />
+                                <span className="form-help-small">Per unused day</span>
+                              </div>
+                            </div>
+
+                            <div className="policy-preview">
+                              <strong>Policy Preview:</strong>
+                              <ul>
+                                <li>If {selectedStaff.staffName} takes <strong>more than {customDayOffConfig.maxDaysOff} days off</strong> → Deduct Rs. {customDayOffConfig.deductionPerDay} per extra day</li>
+                                <li>If {selectedStaff.staffName} takes <strong>less than {customDayOffConfig.maxDaysOff} days off</strong> → Bonus Rs. {customDayOffConfig.bonusPerDay} per unused day</li>
+                              </ul>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {monthlySalary && (
@@ -1164,10 +1411,17 @@ export default function SalaryManagement({ onLogout }) {
                               )}
 
                               {serviceCharge > 0 && (
-                                <div className="summary-section">
-                                  <div className="summary-item positive">
-                                    <span className="summary-label">Service Charge</span>
-                                    <span className="summary-value">+{formatCurrency(serviceCharge)}</span>
+                                <div className="summary-section reference-section">
+                                  <div className="summary-item reference">
+                                    <span className="summary-label">
+                                      Service Charge
+                                      <span className="reference-badge">Reference Only</span>
+                                    </span>
+                                    <span className="summary-value reference-value">{formatCurrency(serviceCharge)}</span>
+                                  </div>
+                                  <div className="reference-note">
+                                    <span className="note-icon">ℹ️</span>
+                                    <span>Not included in net salary</span>
                                   </div>
                                 </div>
                               )}
@@ -1211,9 +1465,14 @@ export default function SalaryManagement({ onLogout }) {
                             {dayOffConfig && (
                               <div className="dayoff-status">
                                 <div className="status-header">
-                                  <span className="status-label">Days Off This Month</span>
-                                  <span className={`status-value ${daysOff > dayOffConfig.maxDaysOff ? 'warning' : daysOff < dayOffConfig.maxDaysOff ? 'success' : 'neutral'}`}>
-                                    {daysOff} / {dayOffConfig.maxDaysOff} limit
+                                  <span className="status-label">
+                                    Days Off This Month
+                                    {staffDayOffConfigs[salary.staffUid]?.isCustom && (
+                                      <span className="custom-policy-badge" title="Custom policy applied">⚙️</span>
+                                    )}
+                                  </span>
+                                  <span className={`status-value ${daysOff > (staffDayOffConfigs[salary.staffUid]?.maxDaysOff || dayOffConfig.maxDaysOff) ? 'warning' : daysOff < (staffDayOffConfigs[salary.staffUid]?.maxDaysOff || dayOffConfig.maxDaysOff) ? 'success' : 'neutral'}`}>
+                                    {daysOff} / {staffDayOffConfigs[salary.staffUid]?.maxDaysOff || dayOffConfig.maxDaysOff} limit
                                   </span>
                                 </div>
                                 {daysOff > dayOffConfig.maxDaysOff && (
@@ -1340,6 +1599,14 @@ export default function SalaryManagement({ onLogout }) {
         >
           <span className="nav-icon">💰</span>
           <span className="nav-label">Salary</span>
+        </button>
+        
+        <button 
+          className={`nav-btn ${isActiveRoute('/admin/accounts') ? 'active' : ''}`}
+          onClick={() => safeNavigate('/admin/accounts')}
+        >
+          <span className="nav-icon">👥</span>
+          <span className="nav-label">Accounts</span>
         </button>
         
         <button 

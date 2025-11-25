@@ -1,0 +1,540 @@
+.monthly-report-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding-bottom: 80px;
+}
+
+/* Header */
+.admin-header {
+  background: white;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin: 0;
+}
+
+.logout-btn {
+  padding: 10px 20px;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+  background: #c0392b;
+  transform: translateY(-2px);
+}
+
+/* Main Content */
+.report-content {
+  max-width: 1400px;
+  margin: 30px auto;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* Not Available Message */
+.not-available-message {
+  background: white;
+  border-radius: 16px;
+  padding: 60px 40px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.message-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+}
+
+.not-available-message h2 {
+  font-size: 28px;
+  color: #2c3e50;
+  margin: 0 0 15px 0;
+}
+
+.not-available-message p {
+  font-size: 16px;
+  color: #7f8c8d;
+  margin: 10px 0;
+  line-height: 1.6;
+}
+
+.not-available-message strong {
+  color: #667eea;
+  font-weight: 700;
+}
+
+.next-report-info {
+  margin-top: 30px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.info-icon {
+  font-size: 20px;
+}
+
+/* Summary Cards */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.summary-card {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.summary-card:hover {
+  transform: translateY(-5px);
+}
+
+.card-icon {
+  font-size: 48px;
+  flex-shrink: 0;
+}
+
+.card-content {
+  flex: 1;
+}
+
+.card-content h3 {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin: 0 0 10px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-amount {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 0 0 5px 0;
+}
+
+.card-label {
+  font-size: 12px;
+  color: #95a5a6;
+}
+
+.bonus-card .card-amount {
+  color: #27ae60;
+}
+
+.deduction-card .card-amount {
+  color: #e74c3c;
+}
+
+.staff-card .card-amount {
+  color: #667eea;
+}
+
+/* Report Table Section */
+.report-table-section {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #ecf0f1;
+}
+
+.section-header h2 {
+  font-size: 22px;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.report-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #7f8c8d;
+}
+
+/* Loading & Empty States */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 15px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(102, 126, 234, 0.3);
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-container p {
+  color: #7f8c8d;
+  font-size: 15px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 15px;
+}
+
+.empty-icon {
+  font-size: 64px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  color: #7f8c8d;
+  font-size: 16px;
+  margin: 0;
+}
+
+/* Report Table */
+.report-table-container {
+  overflow-x: auto;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.report-table thead {
+  background: #f8f9fa;
+}
+
+.report-table th {
+  padding: 15px;
+  text-align: left;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.report-table td {
+  padding: 15px;
+  border-bottom: 1px solid #ecf0f1;
+  font-size: 14px;
+  color: #34495e;
+}
+
+.report-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.staff-id {
+  font-weight: 600;
+  color: #667eea;
+}
+
+.staff-name {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.custom-badge {
+  font-size: 14px;
+  opacity: 0.7;
+  cursor: help;
+}
+
+.days-off {
+  text-align: center;
+}
+
+.days-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.days-badge.over {
+  background: #ffe5e5;
+  color: #e74c3c;
+}
+
+.days-badge.under {
+  background: #d4edda;
+  color: #27ae60;
+}
+
+.days-badge.exact {
+  background: #e3f2fd;
+  color: #2196f3;
+}
+
+.threshold {
+  color: #7f8c8d;
+}
+
+.policy-type {
+  font-size: 12px;
+}
+
+.policy-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.policy-label {
+  font-weight: 600;
+  color: #667eea;
+}
+
+.policy-rates {
+  font-size: 11px;
+  color: #95a5a6;
+}
+
+.adjustment {
+  font-weight: 700;
+  font-size: 16px;
+  text-align: right;
+}
+
+.adjustment.positive {
+  color: #27ae60;
+}
+
+.adjustment.negative {
+  color: #e74c3c;
+}
+
+.adjustment.neutral {
+  color: #95a5a6;
+}
+
+.status {
+  text-align: center;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-badge.bonus {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.deduction {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-badge.neutral {
+  background: #e3f2fd;
+  color: #0c5460;
+}
+
+/* Report Notes */
+.report-notes {
+  background: #fff9e6;
+  border: 2px solid #ffc107;
+  border-radius: 12px;
+  padding: 25px;
+}
+
+.report-notes h3 {
+  font-size: 18px;
+  color: #856404;
+  margin: 0 0 15px 0;
+}
+
+.report-notes ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.report-notes li {
+  font-size: 14px;
+  color: #856404;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+/* Bottom Navigation */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+  z-index: 100;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  color: #7f8c8d;
+}
+
+.nav-item:hover {
+  background: #f8f9fa;
+}
+
+.nav-item.active {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.nav-icon {
+  font-size: 24px;
+}
+
+.nav-label {
+  font-size: 12px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .summary-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .page-title {
+    font-size: 22px;
+  }
+
+  .header-content {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+
+  .logout-btn {
+    align-self: flex-end;
+  }
+
+  .report-table {
+    font-size: 12px;
+  }
+
+  .report-table th,
+  .report-table td {
+    padding: 10px 8px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .nav-label {
+    display: none;
+  }
+
+  .nav-item {
+    padding: 8px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .report-content {
+    padding: 0 10px;
+  }
+
+  .report-table-section,
+  .report-notes {
+    padding: 20px 15px;
+  }
+
+  .not-available-message {
+    padding: 40px 20px;
+  }
+
+  .message-icon {
+    font-size: 60px;
+  }
+
+  .not-available-message h2 {
+    font-size: 22px;
+  }
+}

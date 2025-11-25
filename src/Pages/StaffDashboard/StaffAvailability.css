@@ -698,3 +698,150 @@
     padding-right: max(16px, env(safe-area-inset-right));
   }
 }
+/* === Sunday Restriction Notice Styles === */
+.restriction-notice-section {
+  margin-bottom: 20px;
+}
+
+.restriction-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 15px;
+  border-left: 5px solid #e74c3c;
+}
+
+.restriction-card.success {
+  border-left-color: #27ae60;
+  background: linear-gradient(to right, #d4edda, white);
+}
+
+.restriction-icon {
+  font-size: 40px;
+  flex-shrink: 0;
+}
+
+.restriction-content {
+  flex: 1;
+}
+
+.restriction-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 10px 0;
+}
+
+.restriction-message {
+  font-size: 14px;
+  color: #34495e;
+  margin: 0 0 8px 0;
+  line-height: 1.6;
+}
+
+.restriction-message strong {
+  color: #e74c3c;
+  font-weight: 700;
+}
+
+.restriction-card.success .restriction-message strong {
+  color: #27ae60;
+}
+
+.restriction-submessage {
+  font-size: 13px;
+  color: #7f8c8d;
+  margin: 0 0 15px 0;
+  line-height: 1.5;
+}
+
+.next-update-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #fff3cd;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+.calendar-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.next-update-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.next-update-text .label {
+  font-size: 12px;
+  color: #856404;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.next-update-text .date {
+  font-size: 16px;
+  color: #2c3e50;
+  font-weight: 700;
+}
+
+/* Disabled Input Styles */
+input[type="checkbox"]:disabled,
+select:disabled,
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-action-primary:disabled {
+  background: #95a5a6 !important;
+  cursor: not-allowed;
+}
+
+.btn-copy-mobile:disabled,
+.btn-add-break-mobile:disabled,
+.btn-remove-break-mobile:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .restriction-card {
+    flex-direction: column;
+    padding: 15px;
+  }
+
+  .restriction-icon {
+    font-size: 32px;
+  }
+
+  .restriction-title {
+    font-size: 16px;
+  }
+
+  .restriction-message {
+    font-size: 13px;
+  }
+
+  .next-update-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .calendar-icon {
+    font-size: 20px;
+  }
+
+  .next-update-text .date {
+    font-size: 14px;
+  }
+}

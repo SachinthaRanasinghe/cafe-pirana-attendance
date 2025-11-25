@@ -19,14 +19,43 @@ export default function StaffAvailability({ staffData, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [currentWeek, setCurrentWeek] = useState("");
+  const [isSunday, setIsSunday] = useState(false);
+  const [nextSunday, setNextSunday] = useState("");
 
   const navigate = useNavigate();
   const location = useLocation();
 
   const { staffName, staffId, uid } = staffData || {};
 
-  // Days of the week
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  // Check if today is Sunday
+  useEffect(() => {
+    const checkDay = () => {
+      const today = new Date();
+      const dayOfWeek = today.getDay(); // 0 = Sunday
+      setIsSunday(dayOfWeek === 0);
+      
+      // Calculate next Sunday
+      if (dayOfWeek !== 0) {
+        const daysUntilSunday = 7 - dayOfWeek;
+        const nextSundayDate = new Date(today);
+        nextSundayDate.setDate(today.getDate() + daysUntilSunday);
+        setNextSunday(nextSundayDate.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        }));
+      }
+    };
+
+    checkDay();
+    // Check every hour in case day changes
+    const interval = setInterval(checkDay, 3600000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Days of the week (starting with Sunday)
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   
   // Time slots (30-minute intervals from 6 AM to 12 AM)
   const timeSlots = [];
@@ -37,13 +66,15 @@ export default function StaffAvailability({ staffData, onLogout }) {
     }
   }
 
-  // Get current week start date (Monday)
+  // Get current week start date (Sunday)
   const getCurrentWeekStart = () => {
     const today = new Date();
-    const dayOfWeek = today.getDay();
-    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
-    const monday = new Date(today.setDate(diff));
-    return monday.toISOString().split('T')[0]; // YYYY-MM-DD
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const diff = dayOfWeek; // Days since Sunday
+    const sunday = new Date(today);
+    sunday.setDate(today.getDate() - diff);
+    sunday.setHours(0, 0, 0, 0);
+    return sunday.toISOString().split('T')[0]; // YYYY-MM-DD
   };
 
   // Check if it's a new week and reset if needed
@@ -107,10 +138,12 @@ export default function StaffAvailability({ staffData, onLogout }) {
 
   const getPreviousWeekStart = () => {
     const today = new Date();
-    const dayOfWeek = today.getDay();
-    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) - 7;
-    const previousMonday = new Date(today.setDate(diff));
-    return previousMonday.toISOString().split('T')[0];
+    const dayOfWeek = today.getDay(); // 0 = Sunday
+    const diff = dayOfWeek + 7; // Go back 7 days from current Sunday
+    const previousSunday = new Date(today);
+    previousSunday.setDate(today.getDate() - diff);
+    previousSunday.setHours(0, 0, 0, 0);
+    return previousSunday.toISOString().split('T')[0];
   };
 
   // Fetch existing availabilities and check for week reset
@@ -325,6 +358,48 @@ export default function StaffAvailability({ staffData, onLogout }) {
           </div>
         </section>
 
+        {/* Sunday Restriction Notice */}
+        {!isSunday && (
+          <section className="restriction-notice-section">
+            <div className="restriction-card">
+              <div className="restriction-icon">🔒</div>
+              <div className="restriction-content">
+                <h3 className="restriction-title">Availability Updates Restricted</h3>
+                <p className="restriction-message">
+                  Weekly availability can <strong>only be updated on Sundays</strong>.
+                </p>
+                <p className="restriction-submessage">
+                  You can view your current availability below, but you cannot make changes until Sunday.
+                </p>
+                <div className="next-update-info">
+                  <span className="calendar-icon">📅</span>
+                  <div className="next-update-text">
+                    <span className="label">Next Update Day:</span>
+                    <span className="date">{nextSunday}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {isSunday && (
+          <section className="restriction-notice-section">
+            <div className="restriction-card success">
+              <div className="restriction-icon">✅</div>
+              <div className="restriction-content">
+                <h3 className="restriction-title">Update Available Today</h3>
+                <p className="restriction-message">
+                  Today is Sunday! You can now update your weekly availability below.
+                </p>
+                <p className="restriction-submessage">
+                  Make sure to save your changes before the end of the day.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Week Info Card */}
         <section className="section-mobile">
           <div className="info-card-mobile">
@@ -334,7 +409,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
             </div>
             <div className="info-content-mobile">
               <p>
-                Your availability automatically resets every Monday. 
+                Your availability automatically resets every Sunday. 
                 Changes are saved weekly for reporting purposes.
               </p>
               <div className="week-info-mobile">
@@ -386,11 +461,11 @@ export default function StaffAvailability({ staffData, onLogout }) {
               <button 
                 className="btn-action-primary"
                 onClick={saveAvailabilities}
-                disabled={loading}
+                disabled={loading || !isSunday}
               >
                 <span className="btn-icon">💾</span>
                 <span className="btn-text">
-                  {loading ? "Saving..." : "Save All Changes"}
+                  {loading ? "Saving..." : !isSunday ? "Updates Restricted" : "Save All Changes"}
                 </span>
               </button>
             </div>
@@ -424,6 +499,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
                           type="checkbox"
                           checked={dayData.available}
                           onChange={(e) => handleAvailabilityChange(day, 'available', e.target.checked)}
+                          disabled={!isSunday}
                         />
                         <span className="toggle-slider-mobile"></span>
                       </label>
@@ -431,6 +507,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
                     <button 
                       className="btn-copy-mobile"
                       onClick={() => copyToAllDays(day)}
+                      disabled={!isSunday}
                     >
                       <span className="btn-icon">📋</span>
                       <span className="btn-text">Copy to All</span>
@@ -449,6 +526,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
                               value={dayData.startTime}
                               onChange={(e) => handleTimeChange(day, 'startTime', e.target.value)}
                               className="time-select-mobile"
+                              disabled={!isSunday}
                             >
                               {timeSlots.map(time => (
                                 <option key={time} value={time}>{time}</option>
@@ -461,6 +539,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
                               value={dayData.endTime}
                               onChange={(e) => handleTimeChange(day, 'endTime', e.target.value)}
                               className="time-select-mobile"
+                              disabled={!isSunday}
                             >
                               {timeSlots.map(time => (
                                 <option key={time} value={time}>{time}</option>
@@ -477,6 +556,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
                           <button 
                             className="btn-add-break-mobile"
                             onClick={() => addBreak(day)}
+                            disabled={!isSunday}
                           >
                             <span className="btn-icon">➕</span>
                             <span className="btn-text">Add Break</span>
@@ -490,6 +570,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
                                 value={breakItem.start}
                                 onChange={(e) => updateBreakTime(day, index, 'start', e.target.value)}
                                 className="time-select-mobile"
+                                disabled={!isSunday}
                               >
                                 {timeSlots.map(time => (
                                   <option key={time} value={time}>{time}</option>
@@ -500,6 +581,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
                                 value={breakItem.end}
                                 onChange={(e) => updateBreakTime(day, index, 'end', e.target.value)}
                                 className="time-select-mobile"
+                                disabled={!isSunday}
                               >
                                 {timeSlots.map(time => (
                                   <option key={time} value={time}>{time}</option>
@@ -508,6 +590,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
                               <button 
                                 className="btn-remove-break-mobile"
                                 onClick={() => removeBreak(day, index)}
+                                disabled={!isSunday}
                               >
                                 <span className="btn-icon">🗑️</span>
                               </button>
@@ -559,7 +642,7 @@ export default function StaffAvailability({ staffData, onLogout }) {
               </div>
               <div className="summary-note-mobile">
                 <span className="note-icon">💡</span>
-                <p>Your availability is saved weekly and automatically resets every Monday for accurate monthly reporting.</p>
+                <p>Your availability is saved weekly and automatically resets every Sunday for accurate monthly reporting.</p>
               </div>
             </div>
           </div>

@@ -1,113 +1,155 @@
 import { useState } from "react";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, updatePassword } from "firebase/auth";
 import { auth, db } from "../firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import "./Login.css";
 
 export default function Login({ onStaffLogin }) {
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [staffName, setStaffName] = useState("");
-  const [staffEmail, setStaffEmail] = useState("");
-  const [staffPassword, setStaffPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Password reset state
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [staffProfile, setStaffProfile] = useState(null);
 
-  // 🧾 Staff Registration
-  const handleStaffRegister = async (e) => {
+  // 🔐 Handle Password Reset (First Login)
+  const handlePasswordReset = async (e) => {
     e.preventDefault();
 
-    if (!staffName.trim() || !staffEmail.trim() || !staffPassword.trim()) {
+    if (!newPassword.trim() || !confirmPassword.trim()) {
       alert("Please fill in all fields.");
       return;
     }
 
-    if (staffPassword.length < 6) {
-      alert("Password must be at least 6 characters long.");
+    if (newPassword.length < 8) {
+      alert("Password must be at least 8 characters long.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      alert("Passwords do not match.");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, staffEmail, staffPassword);
-      const user = userCredential.user;
+      // Update Firebase Authentication password
+      await updatePassword(currentUser, newPassword);
 
-      const staffProfile = {
-        staffName: staffName.trim(),
-        staffEmail: staffEmail.trim(),
-        staffId: `CP${Date.now().toString().slice(-4)}`,
-        createdAt: new Date().toISOString(),
-        totalHours: 0,
-        sessionsCount: 0,
-        uid: user.uid,
-      };
+      // Update Firestore to mark password as changed
+      await updateDoc(doc(db, "staff", currentUser.uid), {
+        isFirstLogin: false,
+        passwordChangedAt: new Date().toISOString(),
+      });
 
-      await setDoc(doc(db, "staff", user.uid), staffProfile);
-      alert("✅ Account created successfully! You can now log in.");
-
-      setIsRegistering(false);
-      setStaffName("");
-      setStaffEmail("");
-      setStaffPassword("");
-    } catch (error) {
-      console.error("Registration error:", error);
-      if (error.code === "auth/email-already-in-use") {
-        alert("❌ Email already registered. Please use a different email or login.");
-      } else if (error.code === "auth/invalid-email") {
-        alert("❌ Invalid email address.");
-      } else {
-        alert("❌ Registration failed: " + error.message);
+      alert("✅ Password updated successfully! You can now access the system.");
+      
+      // Complete login process
+      if (onStaffLogin && typeof onStaffLogin === "function") {
+        onStaffLogin(staffProfile);
       }
+    } catch (error) {
+      console.error("Password reset error:", error);
+      alert("❌ Failed to update password: " + error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 🔐 Staff Login
+  // 🔐 Staff Login with Username
   const handleStaffLogin = async (e) => {
     e.preventDefault();
 
-    if (!staffEmail.trim() || !staffPassword.trim()) {
-      alert("Please enter both email and password.");
+    if (!username.trim() || !password.trim()) {
+      alert("Please enter both username and password.");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, staffEmail, staffPassword);
+      // First, find the staff by username in Firestore
+      const { collection, query, where, getDocs } = await import("firebase/firestore");
+      const staffQuery = query(
+        collection(db, "staff"),
+        where("username", "==", username.trim())
+      );
+      const staffSnapshot = await getDocs(staffQuery);
+
+      if (staffSnapshot.empty) {
+        alert("❌ Username not found. Please contact administrator.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Get the staff document
+      const staffDoc = staffSnapshot.docs[0];
+      const staffData = staffDoc.data();
+
+      // Login with email (stored in Firestore) and provided password
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        staffData.email,
+        password
+      );
       const user = userCredential.user;
 
-      const staffDoc = await getDoc(doc(db, "staff", user.uid));
-
-      if (staffDoc.exists()) {
-        const staffData = staffDoc.data();
-
-        const staffProfile = {
+      // Check if first login
+      if (staffData.isFirstLogin === true) {
+        // Force password reset
+        setCurrentUser(user);
+        setStaffProfile({
           uid: user.uid,
-          staffName: staffData.staffName || staffData.name,
-          staffId: staffData.staffId || staffData.id,
-          staffEmail: staffData.staffEmail || staffData.email,
-        };
+          staffName: staffData.staffName,
+          staffId: staffData.staffId,
+          username: staffData.username,
+        });
+        setShowPasswordReset(true);
+        setIsLoading(false);
+        return;
+      }
 
-        if (onStaffLogin && typeof onStaffLogin === "function") {
-          onStaffLogin(staffProfile);
-        } else {
-          console.error("onStaffLogin is not a function:", onStaffLogin);
-          alert("Login system error. Please try again.");
-        }
+      // Normal login - proceed to dashboard
+      const staffProfile = {
+        uid: user.uid,
+        staffName: staffData.staffName,
+        staffId: staffData.staffId,
+        username: staffData.username,
+      };
+
+      if (onStaffLogin && typeof onStaffLogin === "function") {
+        onStaffLogin(staffProfile);
       } else {
-        alert("❌ Staff profile not found. Please contact administrator.");
-        await auth.signOut();
+        console.error("onStaffLogin is not a function:", onStaffLogin);
+        alert("Login system error. Please try again.");
       }
     } catch (error) {
       console.error("Login error:", error);
-      if (error.code === "auth/user-not-found") {
-        alert("❌ Account not found. Please register first.");
-        setIsRegistering(true);
+      
+      // Handle Firestore permission errors
+      if (error.code === "permission-denied" || 
+          error.message.includes("Missing or insufficient permissions")) {
+        alert(
+          "❌ Database Permission Error\n\n" +
+          "The system cannot verify your username. This is a configuration issue.\n\n" +
+          "Please contact the administrator and ask them to update the Firestore security rules.\n\n" +
+          "Technical details: The 'staff' collection needs read permissions for login queries."
+        );
+      }
+      // Handle authentication errors
+      else if (error.code === "auth/user-not-found") {
+        alert("❌ Account not found. Please contact administrator.");
       } else if (error.code === "auth/wrong-password") {
         alert("❌ Incorrect password.");
       } else if (error.code === "auth/invalid-email") {
-        alert("❌ Invalid email address.");
+        alert("❌ Invalid credentials.");
+      } else if (error.code === "auth/invalid-credential") {
+        alert("❌ Invalid username or password. Please check and try again.");
       } else {
         alert("❌ Login failed: " + error.message);
       }
@@ -116,6 +158,89 @@ export default function Login({ onStaffLogin }) {
     }
   };
 
+  // Password Reset UI
+  if (showPasswordReset) {
+    return (
+      <div className="app">
+        <div className="login-container">
+          {/* ☕ Branding */}
+          <div className="login-header">
+            <div className="cafe-brand">
+              <div className="cafe-logo">🔐</div>
+              <div className="brand-text">
+                <h1 className="cafe-name">First Login</h1>
+                <p className="cafe-subtitle">Password Reset Required</p>
+              </div>
+            </div>
+            <p className="login-subtitle">
+              Welcome {staffProfile?.staffName}! Please set a new password to continue.
+            </p>
+          </div>
+
+          {/* 📋 Password Reset Form */}
+          <form onSubmit={handlePasswordReset} className="login-form">
+            <div className="input-group">
+              <label htmlFor="newPassword" className="input-label">
+                New Password
+              </label>
+              <input
+                id="newPassword"
+                type="password"
+                placeholder="Enter new password (min. 8 characters)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="form-input"
+                required
+                minLength={8}
+              />
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="confirmPassword" className="input-label">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                placeholder="Re-enter your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="form-input"
+                required
+                minLength={8}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className={`login-btn ${isLoading ? "loading" : ""}`}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <div className="spinner"></div>
+                  Updating Password...
+                </>
+              ) : (
+                "Update Password & Continue"
+              )}
+            </button>
+          </form>
+
+          {/* 🔒 Security Notice */}
+          <div className="security-notice">
+            <div className="security-icon">⚠️</div>
+            <p>
+              For security, you must change your temporary password before accessing the system.
+              Choose a strong password with at least 8 characters.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal Login UI
   return (
     <div className="app">
       <div className="login-container">
@@ -125,72 +250,43 @@ export default function Login({ onStaffLogin }) {
             <div className="cafe-logo">☕</div>
             <div className="brand-text">
               <h1 className="cafe-name">Cafe Piranha</h1>
-              <p className="cafe-subtitle">
-                {isRegistering ? "Staff Registration" : "Staff Portal"}
-              </p>
+              <p className="cafe-subtitle">Staff Portal</p>
             </div>
           </div>
           <p className="login-subtitle">
-            {isRegistering
-              ? "Create your staff account to access shifts & salary"
-              : "Staff Access • Work & Attendance System"}
+            Staff Access • Work & Attendance System
           </p>
         </div>
 
-        {/* 📋 Form */}
-        <form
-          onSubmit={isRegistering ? handleStaffRegister : handleStaffLogin}
-          className="login-form"
-        >
-          {isRegistering && (
-            <div className="input-group">
-              <label htmlFor="staffName" className="input-label">
-                Full Name
-              </label>
-              <input
-                id="staffName"
-                type="text"
-                placeholder="Enter your full name"
-                value={staffName}
-                onChange={(e) => setStaffName(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-          )}
-
+        {/* 📋 Login Form */}
+        <form onSubmit={handleStaffLogin} className="login-form">
           <div className="input-group">
-            <label htmlFor="staffEmail" className="input-label">
-              Email Address
+            <label htmlFor="username" className="input-label">
+              Username
             </label>
             <input
-              id="staffEmail"
-              type="email"
-              placeholder="Enter your email"
-              value={staffEmail}
-              onChange={(e) => setStaffEmail(e.target.value)}
+              id="username"
+              type="text"
+              placeholder="Enter your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="form-input"
               required
             />
           </div>
 
           <div className="input-group">
-            <label htmlFor="staffPassword" className="input-label">
+            <label htmlFor="password" className="input-label">
               Password
             </label>
             <input
-              id="staffPassword"
+              id="password"
               type="password"
-              placeholder={
-                isRegistering
-                  ? "Create a password (min. 6 characters)"
-                  : "Enter your password"
-              }
-              value={staffPassword}
-              onChange={(e) => setStaffPassword(e.target.value)}
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="form-input"
               required
-              minLength={6}
             />
           </div>
 
@@ -202,35 +298,19 @@ export default function Login({ onStaffLogin }) {
             {isLoading ? (
               <>
                 <div className="spinner"></div>
-                {isRegistering ? "Creating Account..." : "Signing In..."}
+                Signing In...
               </>
-            ) : isRegistering ? (
-              "Create Account"
             ) : (
               "Sign In"
             )}
           </button>
-
-          <div className="form-switch">
-            <button
-              type="button"
-              className="switch-btn"
-              onClick={() => setIsRegistering(!isRegistering)}
-            >
-              {isRegistering
-                ? "← Already have an account? Sign In"
-                : "Need an account? Register Here"}
-            </button>
-          </div>
         </form>
 
         {/* 🔒 Security Notice */}
         <div className="security-notice">
           <div className="security-icon">🔒</div>
           <p>
-            {isRegistering
-              ? "Your account data is securely stored and encrypted."
-              : "Authorized staff access only. Secure connection enabled."}
+            Authorized staff access only. Contact administrator if you need an account.
           </p>
         </div>
       </div>
