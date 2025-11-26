@@ -125,19 +125,15 @@ export default function SalaryManagement({ onLogout }) {
   }, [staffMembers]);
 
   // Calculate monthly days off for all staff
-  // Only calculated on 1st day of month for previous month
   useEffect(() => {
     const calculateAllStaffDaysOff = async () => {
       if (!staffMembers.length) return;
       
-      // Only calculate on 1st day of month
       if (!isFirstDayOfMonth()) {
-        // Not the 1st day - clear any day-off data
         setStaffDaysOff({});
         return;
       }
       
-      // Calculate for PREVIOUS month only
       const now = new Date();
       const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const year = previousMonth.getFullYear();
@@ -148,7 +144,6 @@ export default function SalaryManagement({ onLogout }) {
       
       for (const staff of staffMembers) {
         try {
-          // Use false to exclude current week data
           const daysOff = await calculateMonthlyDaysOff(staff.staffUid, monthString, false);
           daysOffData[staff.staffUid] = daysOff;
         } catch (error) {
@@ -341,7 +336,6 @@ export default function SalaryManagement({ onLogout }) {
 
       await setDoc(doc(db, "salaries", staff.staffUid), salaryData);
       
-      // Save staff-specific day-off configuration if custom is enabled
       if (useCustomDayOff) {
         await saveStaffDayOffConfig(staff.staffUid, {
           maxDaysOff: parseInt(customDayOffConfig.maxDaysOff) || 4,
@@ -351,11 +345,9 @@ export default function SalaryManagement({ onLogout }) {
           staffId: staff.staffId
         });
       } else {
-        // Revert to default if custom is disabled
         await deleteStaffDayOffConfig(staff.staffUid);
       }
       
-      // Reload staff day-off configs
       const updatedConfig = await getEffectiveDayOffConfig(staff.staffUid);
       setStaffDayOffConfigs(prev => ({
         ...prev,
@@ -390,7 +382,6 @@ export default function SalaryManagement({ onLogout }) {
       setIsEditing(true);
       setActiveTab("setup");
       
-      // Load staff-specific day-off config
       const staffConfig = staffDayOffConfigs[staff.staffUid];
       if (staffConfig && staffConfig.isCustom) {
         setUseCustomDayOff(true);
@@ -466,9 +457,7 @@ export default function SalaryManagement({ onLogout }) {
   };
 
   // Calculate day-off deduction/bonus using staff-specific config
-  // Only calculated on 1st day of month for previous month
   const getDayOffAdjustment = (staffUid) => {
-    // Only apply day-off adjustments on the 1st day of the month
     if (!isFirstDayOfMonth()) {
       return 0;
     }
@@ -476,17 +465,13 @@ export default function SalaryManagement({ onLogout }) {
     if (!staffDaysOff[staffUid] && staffDaysOff[staffUid] !== 0) return 0;
     
     const daysOff = staffDaysOff[staffUid];
-    
-    // Use staff-specific config if available, otherwise use global default
     const config = staffDayOffConfigs[staffUid] || dayOffConfig;
     const { maxDaysOff, deductionPerDay, bonusPerDay } = config;
     
     if (daysOff > maxDaysOff) {
-      // Deduct for each day over the limit
       const excessDays = daysOff - maxDaysOff;
       return -Math.abs(excessDays * deductionPerDay);
     } else if (daysOff < maxDaysOff) {
-      // Bonus for each day under the limit
       const bonusDays = maxDaysOff - daysOff;
       return bonusDays * bonusPerDay;
     }
@@ -494,8 +479,7 @@ export default function SalaryManagement({ onLogout }) {
     return 0;
   };
 
-  // Calculate net salary (basic + OT - Short Time - advances - day-off deductions + day-off bonus)
-  // Service charge is NOT included in net salary - shown as reference only
+  // Calculate net salary
   const calculateNetSalary = (staffUid, monthlySalary) => {
     const advances = getTotalAdvances(staffUid);
     const adjustments = getTotalAdjustments(staffUid);
@@ -637,7 +621,10 @@ export default function SalaryManagement({ onLogout }) {
       <header className="mobile-header">
         <div className="header-content">
           <div className="header-brand">
-            <div className="brand-logo">💰</div>
+            <div className="brand-logo">
+              <div className="logo-icon">💰</div>
+              <div className="logo-glow"></div>
+            </div>
             <div className="brand-text">
               <h1 className="brand-title">Salary Management</h1>
               <span className="brand-subtitle">Cafe Piranha</span>
@@ -646,7 +633,7 @@ export default function SalaryManagement({ onLogout }) {
           
           <div className="header-actions">
             <div className="live-status">
-              <span className="status-indicator"></span>
+              <div className="status-pulse"></div>
               <span className="status-text">Live</span>
             </div>
           </div>
@@ -655,41 +642,54 @@ export default function SalaryManagement({ onLogout }) {
         {/* Quick Stats Bar */}
         <div className="stats-bar">
           <div className="stat-item">
-            <span className="stat-value">{stats.staffWithSalary}/{stats.totalStaff}</span>
-            <span className="stat-label">Salaries Set</span>
+            <div className="stat-value">{stats.staffWithSalary}/{stats.totalStaff}</div>
+            <div className="stat-label">Salaries Set</div>
           </div>
           <div className="stat-divider"></div>
           <div className="stat-item">
-            <span className="stat-value">{formatCurrency(stats.totalNetSalary)}</span>
-            <span className="stat-label">Net Payroll</span>
+            <div className="stat-value">{formatCurrency(stats.totalNetSalary)}</div>
+            <div className="stat-label">Net Payroll</div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="mobile-main">
-        {/* Welcome Card */}
-        <section className="welcome-section">
-          <div className="welcome-card">
-            <div className="welcome-content">
-              <div className="welcome-header">
-                <h2 className="welcome-title">
-                  Salary Management 💰
-                </h2>
-                <div className="current-date">
-                  {new Date().toLocaleDateString('en-US', { 
-                    weekday: 'short', 
-                    month: 'short', 
-                    day: 'numeric' 
-                  })}
+        {/* Hero Section */}
+        <section className="hero-section">
+          <div className="hero-card">
+            <div className="hero-content">
+              <div className="hero-badge">
+                <span className="badge-icon">✨</span>
+                <span>Professional Payroll</span>
+              </div>
+              <h1 className="hero-title">
+                Salary Management
+              </h1>
+              <p className="hero-subtitle">
+                Set and manage staff salaries with custom OT rates and day-off policies
+              </p>
+              <div className="hero-stats">
+                <div className="hero-stat">
+                  <span className="stat-number">{stats.totalStaff}</span>
+                  <span className="stat-label">Total Staff</span>
+                </div>
+                <div className="hero-stat">
+                  <span className="stat-number">{stats.staffWithSalary}</span>
+                  <span className="stat-label">With Salary</span>
+                </div>
+                <div className="hero-stat">
+                  <span className="stat-number">{formatCurrency(stats.totalMonthlySalary)}</span>
+                  <span className="stat-label">Base Payroll</span>
                 </div>
               </div>
-              <p className="welcome-subtitle">
-                Set and manage staff salaries with custom OT rates
-              </p>
             </div>
-            <div className="welcome-graphic">
-              <div className="money-animation">💸✨</div>
+            <div className="hero-graphic">
+              <div className="graphic-container">
+                <div className="money-stack">💰</div>
+                <div className="chart-line"></div>
+                <div className="chart-bar"></div>
+              </div>
             </div>
           </div>
         </section>
@@ -698,49 +698,64 @@ export default function SalaryManagement({ onLogout }) {
         <section className="metrics-section">
           <div className="metrics-grid">
             <div className="metric-card">
-              <div className="metric-icon total-staff">👥</div>
+              <div className="metric-icon-container">
+                <div className="metric-icon total-staff">👥</div>
+                <div className="metric-glow"></div>
+              </div>
               <div className="metric-content">
                 <h3 className="metric-value">{stats.totalStaff}</h3>
                 <p className="metric-label">Total Staff</p>
-              </div>
-            </div>
-            
-            <div className="metric-card">
-              <div className="metric-icon service-charge">💡</div>
-              <div className="metric-content">
-                <h3 className="metric-value">{formatCurrency(serviceCharge || 0)}</h3>
-                <p className="metric-label">Service Charge</p>
-                <span className="metric-subtext">Reference only - not in net salary</span>
+                <div className="metric-progress">
+                  <div 
+                    className="progress-bar" 
+                    style={{width: `${(stats.staffWithSalary / stats.totalStaff) * 100}%`}}
+                  ></div>
+                </div>
+                <span className="metric-subtext">
+                  {stats.staffWithSalary} with salary set
+                </span>
               </div>
             </div>
             
             <div className="metric-card highlight">
-              <div className="metric-icon salary-set">💰</div>
+              <div className="metric-icon-container">
+                <div className="metric-icon service-charge">💡</div>
+                <div className="metric-glow"></div>
+              </div>
               <div className="metric-content">
-                <h3 className="metric-value">{stats.staffWithSalary}</h3>
-                <p className="metric-label">With Salary</p>
-                <span className="metric-subtext">
-                  {Math.round((stats.staffWithSalary / stats.totalStaff) * 100)}% coverage
-                </span>
+                <h3 className="metric-value">{formatCurrency(serviceCharge || 0)}</h3>
+                <p className="metric-label">Service Charge</p>
+                <span className="metric-badge reference">Reference</span>
+                <span className="metric-subtext">Not included in net salary</span>
               </div>
             </div>
             
             <div className="metric-card">
-              <div className="metric-icon payroll">📊</div>
+              <div className="metric-icon-container">
+                <div className="metric-icon payroll">📊</div>
+                <div className="metric-glow"></div>
+              </div>
               <div className="metric-content">
                 <h3 className="metric-value">{formatCurrency(stats.totalMonthlySalary)}</h3>
                 <p className="metric-label">Base Payroll</p>
+                <span className="metric-subtext">
+                  {formatCurrency(stats.totalMonthlySalary / stats.staffWithSalary || 0)} avg
+                </span>
               </div>
             </div>
 
             <div className="metric-card">
-              <div className="metric-icon adjustments">⚖️</div>
+              <div className="metric-icon-container">
+                <div className="metric-icon adjustments">⚖️</div>
+                <div className="metric-glow"></div>
+              </div>
               <div className="metric-content">
                 <h3 className="metric-value">{formatCurrency(stats.netAdjustments)}</h3>
                 <p className="metric-label">Net Adjustments</p>
-                <span className="metric-subtext">
-                  +{formatCurrency(stats.totalOT)} / -{formatCurrency(stats.totalShort)}
-                </span>
+                <div className="adjustment-breakdown">
+                  <span className="adjustment-positive">+{formatCurrency(stats.totalOT)}</span>
+                  <span className="adjustment-negative">-{formatCurrency(stats.totalShort)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -783,18 +798,15 @@ export default function SalaryManagement({ onLogout }) {
           </div>
         </section>
 
-        {/* Day-Off Calculation Notice */}
+        {/* Day-Off Notice */}
         {!isFirstDayOfMonth() && (
-          <section className="dayoff-notice-section">
+          <section className="notice-section">
             <div className="notice-card info">
               <div className="notice-icon">📅</div>
               <div className="notice-content">
                 <h3 className="notice-title">Day-Off Calculations</h3>
                 <p className="notice-message">
-                  Day-off bonuses and deductions are calculated and applied <strong>only on the 1st day of each month</strong> for the previous month's attendance.
-                </p>
-                <p className="notice-submessage">
-                  Staff can see warnings during the month if they exceed their limits, but adjustments are not applied to salaries until the 1st.
+                  Day-off bonuses and deductions are calculated and applied <strong>only on the 1st day of each month</strong>.
                 </p>
               </div>
             </div>
@@ -802,36 +814,36 @@ export default function SalaryManagement({ onLogout }) {
         )}
 
         {isFirstDayOfMonth() && (
-          <section className="dayoff-notice-section">
+          <section className="notice-section">
             <div className="notice-card success">
               <div className="notice-icon">✅</div>
               <div className="notice-content">
                 <h3 className="notice-title">Day-Off Report Available</h3>
                 <p className="notice-message">
-                  Today is the 1st of the month. Day-off adjustments for last month are now calculated and applied to net salaries below.
+                  Day-off adjustments for last month are now calculated and applied to net salaries.
                 </p>
                 <button 
-                  className="view-report-btn"
+                  className="btn-outline"
                   onClick={() => safeNavigate('/admin/dayoff-report')}
                 >
                   <span className="btn-icon">📊</span>
-                  <span>View Full Day-Off Report</span>
+                  <span>View Full Report</span>
                 </button>
               </div>
             </div>
           </section>
         )}
 
-        {/* Day-Off Configuration Section */}
-        <section className="dayoff-config-section">
+        {/* Day-Off Configuration */}
+        <section className="config-section">
           <div className="config-card">
             <div className="config-header">
               <div className="config-title">
-                <span className="config-icon">📅</span>
-                <h3>Default Day-Off Policy Configuration</h3>
+                <span className="config-icon">⚙️</span>
+                <h3>Day-Off Policy</h3>
               </div>
               <button 
-                className="btn-config-toggle"
+                className="btn-ghost"
                 onClick={() => setShowDayOffConfig(!showDayOffConfig)}
               >
                 <span className="btn-icon">{showDayOffConfig ? "▼" : "▶"}</span>
@@ -842,52 +854,46 @@ export default function SalaryManagement({ onLogout }) {
             {showDayOffConfig && (
               <div className="config-content">
                 <div className="config-info">
-                  <p>Configure default deduction and bonus amounts for staff day-off policy:</p>
-                  <ul>
-                    <li>If staff takes <strong>more than {dayOffConfig.maxDaysOff} days off</strong> per month → Deduct salary</li>
-                    <li>If staff takes <strong>less than {dayOffConfig.maxDaysOff} days off</strong> per month → Add bonus</li>
-                    <li><strong>Note:</strong> Individual staff members can have custom policies set in the Setup tab</li>
-                  </ul>
+                  <p>Configure default day-off policy for all staff:</p>
                 </div>
                 
                 <div className="config-form">
-                  <div className="form-group">
-                    <label className="form-label">Maximum Days Off (Threshold)</label>
-                    <input
-                      type="number"
-                      value={dayOffConfig.maxDaysOff}
-                      onChange={(e) => setDayOffConfig({ ...dayOffConfig, maxDaysOff: parseInt(e.target.value) || 4 })}
-                      className="form-input"
-                      min="0"
-                      max="30"
-                    />
-                    <span className="form-help">Days off above this threshold will trigger deduction</span>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">Deduction Per Day (Rs.)</label>
-                    <input
-                      type="number"
-                      value={dayOffConfig.deductionPerDay}
-                      onChange={(e) => setDayOffConfig({ ...dayOffConfig, deductionPerDay: parseFloat(e.target.value) || 500 })}
-                      className="form-input"
-                      min="0"
-                      step="50"
-                    />
-                    <span className="form-help">Amount deducted for each day over the threshold</span>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">Bonus Per Day (Rs.)</label>
-                    <input
-                      type="number"
-                      value={dayOffConfig.bonusPerDay}
-                      onChange={(e) => setDayOffConfig({ ...dayOffConfig, bonusPerDay: parseFloat(e.target.value) || 300 })}
-                      className="form-input"
-                      min="0"
-                      step="50"
-                    />
-                    <span className="form-help">Bonus amount for each day under the threshold</span>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Max Days Off</label>
+                      <input
+                        type="number"
+                        value={dayOffConfig.maxDaysOff}
+                        onChange={(e) => setDayOffConfig({ ...dayOffConfig, maxDaysOff: parseInt(e.target.value) || 4 })}
+                        className="form-input"
+                        min="0"
+                        max="30"
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label className="form-label">Deduction/Day</label>
+                      <input
+                        type="number"
+                        value={dayOffConfig.deductionPerDay}
+                        onChange={(e) => setDayOffConfig({ ...dayOffConfig, deductionPerDay: parseFloat(e.target.value) || 500 })}
+                        className="form-input"
+                        min="0"
+                        step="50"
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label className="form-label">Bonus/Day</label>
+                      <input
+                        type="number"
+                        value={dayOffConfig.bonusPerDay}
+                        onChange={(e) => setDayOffConfig({ ...dayOffConfig, bonusPerDay: parseFloat(e.target.value) || 300 })}
+                        className="form-input"
+                        min="0"
+                        step="50"
+                      />
+                    </div>
                   </div>
                   
                   <button 
@@ -897,7 +903,7 @@ export default function SalaryManagement({ onLogout }) {
                   >
                     {savingConfig ? (
                       <>
-                        <div className="loading-spinner-small"></div>
+                        <div className="spinner"></div>
                         <span>Saving...</span>
                       </>
                     ) : (
@@ -928,7 +934,6 @@ export default function SalaryManagement({ onLogout }) {
               <button 
                 className="clear-search"
                 onClick={() => setSearchTerm("")}
-                aria-label="Clear search"
               >
                 ✕
               </button>
@@ -943,7 +948,7 @@ export default function SalaryManagement({ onLogout }) {
             <div className="tab-panel">
               <section className="content-section">
                 <div className="section-header">
-                  <h2>{isEditing ? "Edit Salary & OT Rate" : "Set Salary & OT Rate"}</h2>
+                  <h2>{isEditing ? "Edit Salary" : "Set Salary"}</h2>
                   <div className="section-badge pending">
                     {staffMembers.length - Object.keys(salaries).length} pending
                   </div>
@@ -955,7 +960,7 @@ export default function SalaryManagement({ onLogout }) {
                     
                     {staffLoading ? (
                       <div className="loading-state">
-                        <div className="loading-spinner"></div>
+                        <div className="spinner"></div>
                         <span>Loading staff members...</span>
                       </div>
                     ) : filteredStaffMembers.length === 0 ? (
@@ -976,7 +981,6 @@ export default function SalaryManagement({ onLogout }) {
                             setOtRate(existingSalary?.otRate?.toString() || "200");
                             setIsEditing(!!existingSalary);
                             
-                            // Load staff-specific day-off config
                             const staffConfig = staffDayOffConfigs[staff.staffUid];
                             if (staffConfig && staffConfig.isCustom) {
                               setUseCustomDayOff(true);
@@ -1029,27 +1033,6 @@ export default function SalaryManagement({ onLogout }) {
                                 <span className="tag-icon">💰</span>
                                 <span>Current: {formatCurrency(salaries[selectedStaff.staffUid].monthlySalary)}/month</span>
                               </div>
-                              <div className="adjustment-summary">
-                                <div className="adjustment-item positive">
-                                  <span>OT: +{formatCurrency(getTotalOT(selectedStaff.staffUid))}</span>
-                                </div>
-                                <div className="adjustment-item negative">
-                                  <span>Short: -{formatCurrency(getTotalShort(selectedStaff.staffUid))}</span>
-                                </div>
-                                <div className="adjustment-item warning">
-                                  <span>Advances: -{formatCurrency(getTotalAdvances(selectedStaff.staffUid))}</span>
-                                </div>
-                                {dayOffConfig && staffDaysOff[selectedStaff.staffUid] !== undefined && (
-                                  <div className={`adjustment-item ${getDayOffAdjustment(selectedStaff.staffUid) > 0 ? 'positive' : getDayOffAdjustment(selectedStaff.staffUid) < 0 ? 'negative' : ''}`}>
-                                    <span>
-                                      Days Off: {staffDaysOff[selectedStaff.staffUid]} days
-                                      {getDayOffAdjustment(selectedStaff.staffUid) !== 0 && (
-                                        <span> ({getDayOffAdjustment(selectedStaff.staffUid) > 0 ? '+' : ''}{formatCurrency(getDayOffAdjustment(selectedStaff.staffUid))})</span>
-                                      )}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
                             </div>
                           )}
                         </div>
@@ -1069,10 +1052,7 @@ export default function SalaryManagement({ onLogout }) {
                       </div>
 
                       <div className="form-group">
-                        <label className="form-label">
-                          Overtime Rate (Rs./hour)
-                          <span className="help-text">Custom rate for this staff member</span>
-                        </label>
+                        <label className="form-label">Overtime Rate (Rs./hour)</label>
                         <input
                           type="number"
                           value={otRate}
@@ -1082,43 +1062,35 @@ export default function SalaryManagement({ onLogout }) {
                           min="0"
                           step="10"
                         />
-                        <div className="rate-info">
-                          <span className="info-icon">💡</span>
-                          <span>Default rate: Rs. 200/hour. Set custom rate if different.</span>
-                        </div>
+                        <div className="form-help">Default rate: Rs. 200/hour</div>
                       </div>
 
                       {/* Custom Day-Off Configuration */}
                       <div className="form-group">
                         <div className="custom-config-toggle">
-                          <label className="form-label">
+                          <label className="checkbox-label">
                             <input
                               type="checkbox"
                               checked={useCustomDayOff}
                               onChange={(e) => setUseCustomDayOff(e.target.checked)}
                               className="form-checkbox"
                             />
-                            <span className="checkbox-label">
+                            <span className="checkbox-custom"></span>
+                            <span className="checkbox-text">
                               <span className="checkbox-icon">📅</span>
-                              <span>Use Custom Day-Off Policy</span>
+                              Use Custom Day-Off Policy
                             </span>
                           </label>
-                          <span className="help-text">
-                            {useCustomDayOff 
-                              ? "Custom rates will apply to this staff member" 
-                              : "Using global default policy"}
-                          </span>
                         </div>
 
                         {useCustomDayOff && (
                           <div className="custom-dayoff-config">
-                            <div className="config-info-box">
-                              <span className="info-icon">ℹ️</span>
-                              <p>Set individual day-off policy for {selectedStaff.staffName}</p>
+                            <div className="config-header">
+                              <h4>Custom Day-Off Policy</h4>
                             </div>
-
+                            
                             <div className="form-row">
-                              <div className="form-col">
+                              <div className="form-group">
                                 <label className="form-label-small">Days Off Threshold</label>
                                 <input
                                   type="number"
@@ -1131,11 +1103,10 @@ export default function SalaryManagement({ onLogout }) {
                                   min="0"
                                   max="30"
                                 />
-                                <span className="form-help-small">Days allowed</span>
                               </div>
 
-                              <div className="form-col">
-                                <label className="form-label-small">Deduction Rate (Rs./day)</label>
+                              <div className="form-group">
+                                <label className="form-label-small">Deduction Rate</label>
                                 <input
                                   type="number"
                                   value={customDayOffConfig.deductionPerDay}
@@ -1147,11 +1118,10 @@ export default function SalaryManagement({ onLogout }) {
                                   min="0"
                                   step="50"
                                 />
-                                <span className="form-help-small">Per excess day</span>
                               </div>
 
-                              <div className="form-col">
-                                <label className="form-label-small">Bonus Rate (Rs./day)</label>
+                              <div className="form-group">
+                                <label className="form-label-small">Bonus Rate</label>
                                 <input
                                   type="number"
                                   value={customDayOffConfig.bonusPerDay}
@@ -1163,16 +1133,7 @@ export default function SalaryManagement({ onLogout }) {
                                   min="0"
                                   step="50"
                                 />
-                                <span className="form-help-small">Per unused day</span>
                               </div>
-                            </div>
-
-                            <div className="policy-preview">
-                              <strong>Policy Preview:</strong>
-                              <ul>
-                                <li>If {selectedStaff.staffName} takes <strong>more than {customDayOffConfig.maxDaysOff} days off</strong> → Deduct Rs. {customDayOffConfig.deductionPerDay} per extra day</li>
-                                <li>If {selectedStaff.staffName} takes <strong>less than {customDayOffConfig.maxDaysOff} days off</strong> → Bonus Rs. {customDayOffConfig.bonusPerDay} per unused day</li>
-                              </ul>
                             </div>
                           </div>
                         )}
@@ -1182,7 +1143,6 @@ export default function SalaryManagement({ onLogout }) {
                         <div className="breakdown-card">
                           <div className="breakdown-header">
                             <h4>Salary Breakdown</h4>
-                            <div className="breakdown-badge">Calculated</div>
                           </div>
                           <div className="breakdown-grid">
                             <div className="breakdown-item">
@@ -1197,10 +1157,6 @@ export default function SalaryManagement({ onLogout }) {
                               <span className="breakdown-label">OT Rate</span>
                               <span className="breakdown-value">Rs. {otRate || "200"}/hour</span>
                             </div>
-                            <div className="breakdown-item">
-                              <span className="breakdown-label">Max Advance (50%)</span>
-                              <span className="breakdown-value">{formatCurrency(monthlySalary * 0.5)}</span>
-                            </div>
                           </div>
                         </div>
                       )}
@@ -1212,7 +1168,7 @@ export default function SalaryManagement({ onLogout }) {
                       >
                         {loading ? (
                           <>
-                            <div className="loading-spinner-small"></div>
+                            <div className="spinner"></div>
                             <span>Saving...</span>
                           </>
                         ) : (
@@ -1251,9 +1207,6 @@ export default function SalaryManagement({ onLogout }) {
                         Updated {new Date(serviceChargeUpdatedAt).toLocaleString()}
                       </div>
                     )}
-                    <p className="value-note">
-                      This amount is shared with every staff member and does not reset monthly.
-                    </p>
                   </div>
 
                   <div className="service-charge-form">
@@ -1267,9 +1220,6 @@ export default function SalaryManagement({ onLogout }) {
                         value={serviceChargeInput}
                         onChange={(e) => setServiceChargeInput(e.target.value)}
                       />
-                      <span className="form-help">
-                        Enter the total service charge amount per staff member.
-                      </span>
                     </div>
 
                     <button
@@ -1279,7 +1229,7 @@ export default function SalaryManagement({ onLogout }) {
                     >
                       {serviceChargeSaving ? (
                         <>
-                          <div className="loading-spinner-small"></div>
+                          <div className="spinner"></div>
                           <span>Saving...</span>
                         </>
                       ) : (
@@ -1341,10 +1291,6 @@ export default function SalaryManagement({ onLogout }) {
                               <div className="staff-details">
                                 <h3 className="staff-name">{salary.staffName}</h3>
                                 <p className="staff-id">ID: {salary.staffId}</p>
-                                <div className="ot-rate-tag">
-                                  <span className="tag-icon">🕒</span>
-                                  <span>OT: Rs. {staffOtRate}/hour</span>
-                                </div>
                               </div>
                             </div>
                             <div className="salary-display">
@@ -1354,166 +1300,49 @@ export default function SalaryManagement({ onLogout }) {
                           </div>
 
                           <div className="card-content">
-                            {/* Rate Summary */}
-                            <div className="rate-summary">
-                              <div className="rate-item">
-                                <span className="rate-label">Daily</span>
-                                <span className="rate-value">{formatCurrency(salary.monthlySalary / 26)}</span>
-                              </div>
-                              <div className="rate-item">
-                                <span className="rate-label">Hourly</span>
-                                <span className="rate-value">{formatCurrency(salary.hourlyRate || (salary.monthlySalary / (26 * 8)))}</span>
-                              </div>
-                              <div className="rate-item highlight">
-                                <span className="rate-label">OT Rate</span>
-                                <span className="rate-value">Rs. {staffOtRate}/h</span>
-                              </div>
-                            </div>
-                            
                             {/* Financial Summary */}
                             <div className="financial-summary">
-                              <div className="summary-section">
-                                <div className="summary-item">
-                                  <span className="summary-label">Base Salary</span>
-                                  <span className="summary-value">{formatCurrency(salary.monthlySalary)}</span>
-                                </div>
-                                {totalOT > 0 && (
-                                  <div className="summary-item positive">
-                                    <span className="summary-label">Overtime</span>
-                                    <span className="summary-value">
-                                      +{formatCurrency(totalOT)}
-                                    </span>
-                                    <span className="summary-note">
-                                      {totalOTHours.toFixed(1)}h @ Rs.{staffOtRate}/h
-                                    </span>
-                                  </div>
-                                )}
-                                {totalShort > 0 && (
-                                  <div className="summary-item negative">
-                                    <span className="summary-label">Short Time</span>
-                                    <span className="summary-value">
-                                      -{formatCurrency(totalShort)}
-                                    </span>
-                                    <span className="summary-note">
-                                      {totalShortHours.toFixed(1)}h deducted
-                                    </span>
-                                  </div>
-                                )}
+                              <div className="summary-item">
+                                <span className="summary-label">Base Salary</span>
+                                <span className="summary-value">{formatCurrency(salary.monthlySalary)}</span>
                               </div>
-                              
+                              {totalOT > 0 && (
+                                <div className="summary-item positive">
+                                  <span className="summary-label">Overtime</span>
+                                  <span className="summary-value">
+                                    +{formatCurrency(totalOT)}
+                                  </span>
+                                </div>
+                              )}
+                              {totalShort > 0 && (
+                                <div className="summary-item negative">
+                                  <span className="summary-label">Short Time</span>
+                                  <span className="summary-value">
+                                    -{formatCurrency(totalShort)}
+                                  </span>
+                                </div>
+                              )}
                               {totalAdvances > 0 && (
-                                <div className="summary-section">
-                                  <div className="summary-item warning">
-                                    <span className="summary-label">Advances</span>
-                                    <span className="summary-value">-{formatCurrency(totalAdvances)}</span>
-                                  </div>
+                                <div className="summary-item warning">
+                                  <span className="summary-label">Advances</span>
+                                  <span className="summary-value">-{formatCurrency(totalAdvances)}</span>
                                 </div>
                               )}
-
-                              {serviceCharge > 0 && (
-                                <div className="summary-section reference-section">
-                                  <div className="summary-item reference">
-                                    <span className="summary-label">
-                                      Service Charge
-                                      <span className="reference-badge">Reference Only</span>
-                                    </span>
-                                    <span className="summary-value reference-value">{formatCurrency(serviceCharge)}</span>
-                                  </div>
-                                  <div className="reference-note">
-                                    <span className="note-icon">ℹ️</span>
-                                    <span>Not included in net salary</span>
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {/* Day-Off Adjustment */}
                               {dayOffAdjustment !== 0 && (
-                                <div className="summary-section">
-                                  <div className={`summary-item ${dayOffAdjustment > 0 ? 'positive' : 'negative'}`}>
-                                    <span className="summary-label">
-                                      Day-Off {dayOffAdjustment > 0 ? 'Bonus' : 'Deduction'}
-                                    </span>
-                                    <span className="summary-value">
-                                      {dayOffAdjustment > 0 ? '+' : ''}{formatCurrency(dayOffAdjustment)}
-                                    </span>
-                                    <span className="summary-note">
-                                      {daysOff} days off this month
-                                      {dayOffConfig && (
-                                        <>
-                                          {daysOff > dayOffConfig.maxDaysOff && (
-                                            <span> ({daysOff - dayOffConfig.maxDaysOff} over limit)</span>
-                                          )}
-                                          {daysOff < dayOffConfig.maxDaysOff && (
-                                            <span> ({dayOffConfig.maxDaysOff - daysOff} under limit)</span>
-                                          )}
-                                        </>
-                                      )}
-                                    </span>
-                                  </div>
+                                <div className={`summary-item ${dayOffAdjustment > 0 ? 'positive' : 'negative'}`}>
+                                  <span className="summary-label">
+                                    Day-Off {dayOffAdjustment > 0 ? 'Bonus' : 'Deduction'}
+                                  </span>
+                                  <span className="summary-value">
+                                    {dayOffAdjustment > 0 ? '+' : ''}{formatCurrency(dayOffAdjustment)}
+                                  </span>
                                 </div>
                               )}
-                              
-                              <div className="summary-section total">
-                                <div className="summary-item total">
-                                  <span className="summary-label">Net Salary</span>
-                                  <span className="summary-value">{formatCurrency(netSalary)}</span>
-                                </div>
+                              <div className="summary-item total">
+                                <span className="summary-label">Net Salary</span>
+                                <span className="summary-value">{formatCurrency(netSalary)}</span>
                               </div>
                             </div>
-                            
-                            {/* Day-Off Status */}
-                            {dayOffConfig && (
-                              <div className="dayoff-status">
-                                <div className="status-header">
-                                  <span className="status-label">
-                                    Days Off This Month
-                                    {staffDayOffConfigs[salary.staffUid]?.isCustom && (
-                                      <span className="custom-policy-badge" title="Custom policy applied">⚙️</span>
-                                    )}
-                                  </span>
-                                  <span className={`status-value ${daysOff > (staffDayOffConfigs[salary.staffUid]?.maxDaysOff || dayOffConfig.maxDaysOff) ? 'warning' : daysOff < (staffDayOffConfigs[salary.staffUid]?.maxDaysOff || dayOffConfig.maxDaysOff) ? 'success' : 'neutral'}`}>
-                                    {daysOff} / {staffDayOffConfigs[salary.staffUid]?.maxDaysOff || dayOffConfig.maxDaysOff} limit
-                                  </span>
-                                </div>
-                                {daysOff > dayOffConfig.maxDaysOff && (
-                                  <div className="status-message warning">
-                                    <span className="status-icon">⚠️</span>
-                                    <span>Exceeded limit by {daysOff - dayOffConfig.maxDaysOff} day(s)</span>
-                                  </div>
-                                )}
-                                {daysOff < dayOffConfig.maxDaysOff && (
-                                  <div className="status-message success">
-                                    <span className="status-icon">✅</span>
-                                    <span>Under limit by {dayOffConfig.maxDaysOff - daysOff} day(s) - Bonus eligible</span>
-                                  </div>
-                                )}
-                                {daysOff === dayOffConfig.maxDaysOff && (
-                                  <div className="status-message neutral">
-                                    <span className="status-icon">✓</span>
-                                    <span>Exactly at limit - No adjustment</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            
-                            {/* Advance Progress */}
-                            {totalAdvances > 0 && (
-                              <div className="advance-progress">
-                                <div className="progress-header">
-                                  <span className="progress-label">Advance Usage</span>
-                                  <span className="progress-value">{advanceUsage}%</span>
-                                </div>
-                                <div className="progress-bar">
-                                  <div 
-                                    className={`progress-fill ${advanceUsage > 80 ? 'high' : advanceUsage > 50 ? 'medium' : 'low'}`}
-                                    style={{ width: `${Math.min(advanceUsage, 100)}%` }}
-                                  ></div>
-                                </div>
-                                <div className="progress-amount">
-                                  {formatCurrency(totalAdvances)} of {formatCurrency(salary.monthlySalary * 0.5)} limit
-                                </div>
-                              </div>
-                            )}
                           </div>
 
                           <div className="card-actions">
@@ -1538,49 +1367,6 @@ export default function SalaryManagement({ onLogout }) {
             </div>
           )}
         </div>
-
-        {/* Quick Actions */}
-        <section className="actions-section">
-          <div className="section-header">
-            <h3>Quick Actions</h3>
-            <div className="admin-badge">Admin</div>
-          </div>
-          
-          <div className="action-buttons">
-            <button 
-              className="action-btn"
-              onClick={() => {
-                const staffWithoutSalary = staffMembers.filter(staff => !salaries[staff.staffUid]);
-                if (staffWithoutSalary.length > 0) {
-                  const randomStaff = staffWithoutSalary[Math.floor(Math.random() * staffWithoutSalary.length)];
-                  setSelectedStaff(randomStaff);
-                  setMonthlySalary("");
-                  setOtRate("200");
-                  setIsEditing(false);
-                  setActiveTab("setup");
-                } else {
-                  alert("🎉 All staff members have salaries set!");
-                }
-              }}
-            >
-              <span className="btn-icon">🎲</span>
-              <span>Random Staff</span>
-            </button>
-            
-            <button 
-              className="action-btn outline"
-              onClick={() => {
-                setSelectedStaff(null);
-                setMonthlySalary("");
-                setOtRate("200");
-                setIsEditing(false);
-              }}
-            >
-              <span className="btn-icon">🔄</span>
-              <span>Clear Form</span>
-            </button>
-          </div>
-        </section>
       </main>
 
       {/* Mobile Bottom Navigation */}
@@ -1607,30 +1393,6 @@ export default function SalaryManagement({ onLogout }) {
         >
           <span className="nav-icon">👥</span>
           <span className="nav-label">Accounts</span>
-        </button>
-        
-        <button 
-          className={`nav-btn ${isActiveRoute('/admin/advances') ? 'active' : ''}`}
-          onClick={() => safeNavigate('/admin/advances')}
-        >
-          <span className="nav-icon">📋</span>
-          <span className="nav-label">Advances</span>
-        </button>
-        
-        <button 
-          className={`nav-btn ${isActiveRoute('/admin/ot-approvals') ? 'active' : ''}`}
-          onClick={() => safeNavigate('/admin/ot-approvals')}
-        >
-          <span className="nav-icon">🕒</span>
-          <span className="nav-label">Adjustments</span>
-        </button>
-        
-        <button 
-          className={`nav-btn ${isActiveRoute('/admin/availability') ? 'active' : ''}`}
-          onClick={() => safeNavigate('/admin/availability')}
-        >
-          <span className="nav-icon">📅</span>
-          <span className="nav-label">Availability</span>
         </button>
         
         <button className="nav-btn logout" onClick={onLogout}>
