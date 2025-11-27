@@ -15,10 +15,16 @@ export default function SalaryView({ staffData, onLogout }) {
   const [salary, setSalary] = useState(null);
   const [advanceRequests, setAdvanceRequests] = useState([]);
   const [adjustmentRequests, setAdjustmentRequests] = useState([]);
-  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().substring(0, 7));
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7));
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [serviceCharge, setServiceCharge] = useState(0);
+
+  // Check if selected month is current month
+  const isCurrentMonth = () => {
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    return selectedMonth === currentMonth;
+  };
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -102,24 +108,24 @@ export default function SalaryView({ staffData, onLogout }) {
     return () => unsubscribe();
   }, []);
 
-  // Calculate current month stats WITHOUT adding service charge to net salary
+  // Calculate month stats WITHOUT adding service charge to net salary
   const calculateMonthStats = () => {
     const basicSalary = salary?.monthlySalary || 0;
     const serviceChargeAmount = serviceCharge || 0;
     
-    // Calculate approved advances for current month
-    const currentMonthAdvances = advanceRequests
+    // Calculate approved advances for selected month
+    const monthAdvances = advanceRequests
       .filter(req => {
         const requestMonth = req.shiftMonth || req.month;
-        return requestMonth === currentMonth && req.status === "approved";
+        return requestMonth === selectedMonth && req.status === "approved";
       })
       .reduce((sum, req) => sum + (req.amount || 0), 0);
 
     // Calculate net adjustments (OT - Short Time)
-    const currentMonthAdjustments = adjustmentRequests
+    const monthAdjustments = adjustmentRequests
       .filter(req => {
         const requestMonth = req.shiftMonth || req.month;
-        return requestMonth === currentMonth && req.status === "approved";
+        return requestMonth === selectedMonth && req.status === "approved";
       })
       .reduce((sum, req) => {
         if (req.adjustmentType === 'overtime') {
@@ -131,25 +137,25 @@ export default function SalaryView({ staffData, onLogout }) {
       }, 0);
 
     // NET SALARY CALCULATION: DO NOT ADD SERVICE CHARGE
-    const netSalary = Math.max(0, basicSalary + currentMonthAdjustments - currentMonthAdvances);
+    const netSalary = Math.max(0, basicSalary + monthAdjustments - monthAdvances);
 
     return {
       basicSalary,
-      advances: currentMonthAdvances,
-      adjustments: currentMonthAdjustments,
+      advances: monthAdvances,
+      adjustments: monthAdjustments,
       netSalary,
-      remainingSalary: Math.max(0, basicSalary - currentMonthAdvances),
+      remainingSalary: Math.max(0, basicSalary - monthAdvances),
       serviceCharge: serviceChargeAmount, // Only for display
       otAmount: adjustmentRequests
         .filter(req => {
           const requestMonth = req.shiftMonth || req.month;
-          return requestMonth === currentMonth && req.status === "approved" && req.adjustmentType === 'overtime';
+          return requestMonth === selectedMonth && req.status === "approved" && req.adjustmentType === 'overtime';
         })
         .reduce((sum, req) => sum + (req.adjustmentAmount || 0), 0),
       shortAmount: adjustmentRequests
         .filter(req => {
           const requestMonth = req.shiftMonth || req.month;
-          return requestMonth === currentMonth && req.status === "approved" && req.adjustmentType === 'short_time';
+          return requestMonth === selectedMonth && req.status === "approved" && req.adjustmentType === 'short_time';
         })
         .reduce((sum, req) => sum + (req.adjustmentAmount || 0), 0)
     };
@@ -159,39 +165,39 @@ export default function SalaryView({ staffData, onLogout }) {
 
   // Calculate statistics for display
   const getAdvanceStats = () => {
-    const currentMonthAdvances = advanceRequests
+    const monthAdvances = advanceRequests
       .filter(req => {
         const requestMonth = req.shiftMonth || req.month;
-        return requestMonth === currentMonth && req.status === "approved";
+        return requestMonth === selectedMonth && req.status === "approved";
       });
 
     const pendingAdvances = advanceRequests
       .filter(req => {
         const requestMonth = req.shiftMonth || req.month;
-        return requestMonth === currentMonth && req.status === "pending";
+        return requestMonth === selectedMonth && req.status === "pending";
       });
 
     return {
-      approvedCount: currentMonthAdvances.length,
+      approvedCount: monthAdvances.length,
       pendingCount: pendingAdvances.length,
-      totalAdvances: currentMonthAdvances.reduce((sum, req) => sum + (req.amount || 0), 0)
+      totalAdvances: monthAdvances.reduce((sum, req) => sum + (req.amount || 0), 0)
     };
   };
 
   const getAdjustmentStats = () => {
-    const currentMonthAdjustments = adjustmentRequests
+    const monthAdjustments = adjustmentRequests
       .filter(req => {
         const requestMonth = req.shiftMonth || req.month;
-        return requestMonth === currentMonth;
+        return requestMonth === selectedMonth;
       });
 
-    const approvedOT = currentMonthAdjustments.filter(req => 
+    const approvedOT = monthAdjustments.filter(req => 
       req.status === "approved" && req.adjustmentType === 'overtime'
     );
-    const approvedShort = currentMonthAdjustments.filter(req => 
+    const approvedShort = monthAdjustments.filter(req => 
       req.status === "approved" && req.adjustmentType === 'short_time'
     );
-    const pendingAdjustments = currentMonthAdjustments.filter(req => 
+    const pendingAdjustments = monthAdjustments.filter(req => 
       req.status === "pending"
     );
 
@@ -241,6 +247,13 @@ export default function SalaryView({ staffData, onLogout }) {
   const formatMonth = (monthString) => {
     return new Date(monthString + '-01').toLocaleDateString('en-US', { 
       month: 'long', 
+      year: 'numeric' 
+    });
+  };
+
+  const formatMonthShort = (monthString) => {
+    return new Date(monthString + '-01').toLocaleDateString('en-US', { 
+      month: 'short', 
       year: 'numeric' 
     });
   };
@@ -304,11 +317,11 @@ export default function SalaryView({ staffData, onLogout }) {
                   Good {getTimeOfDay()}! 🌅
                 </h2>
                 <div className="salary-period">
-                  {formatMonth(currentMonth)}
+                  {formatMonth(selectedMonth)}
                 </div>
               </div>
               <p className="welcome-subtitle">
-                Your financial overview for this period
+                {isCurrentMonth() ? 'Your running financial overview' : 'Your finalized salary statement'}
               </p>
             </div>
             <div className="welcome-graphic">
@@ -321,23 +334,34 @@ export default function SalaryView({ staffData, onLogout }) {
         <section className="filter-section">
           <div className="filter-card">
             <div className="filter-header">
-              <h3 className="filter-title">Select Period</h3>
+              <h3 className="filter-title">
+                {isCurrentMonth() ? '🟢 CURRENT MONTH' : '✅ FINALIZED'}
+              </h3>
               <div className="month-badge">
-                {new Date(currentMonth + '-01').toLocaleDateString('en-US', { 
-                  month: 'short', 
-                  year: 'numeric' 
-                })}
+                {formatMonthShort(selectedMonth)}
               </div>
             </div>
             <div className="month-selector">
               <input 
                 type="month" 
-                value={currentMonth}
-                onChange={(e) => setCurrentMonth(e.target.value)}
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                max={new Date().toISOString().substring(0, 7)}
                 className="month-input"
               />
               <div className="calendar-icon">📅</div>
             </div>
+            {isCurrentMonth() ? (
+              <div className="month-notice info">
+                <span className="notice-icon">ℹ️</span>
+                <span className="notice-text">Running totals - Day-off adjustment pending</span>
+              </div>
+            ) : (
+              <div className="month-notice success">
+                <span className="notice-icon">✅</span>
+                <span className="notice-text">Finalized salary including all adjustments</span>
+              </div>
+            )}
           </div>
         </section>
 
@@ -396,12 +420,18 @@ export default function SalaryView({ staffData, onLogout }) {
                 <section className="salary-card-section">
                   <div className="net-salary-card">
                     <div className="salary-header">
-                      <h3 className="salary-title">Net Salary</h3>
-                      <div className="salary-period">{formatMonth(currentMonth)}</div>
+                      <h3 className="salary-title">{isCurrentMonth() ? 'Running Net' : 'Final Net'}</h3>
+                      <div className="salary-period">{formatMonth(selectedMonth)}</div>
                     </div>
                     <div className="salary-amount">
                       {formatCurrency(monthStats.netSalary)}
                     </div>
+                    {isCurrentMonth() && (
+                      <div className="salary-note">
+                        <span className="note-icon">⚠️</span>
+                        <span className="note-text">*Day-off adjustment calculates on 1st of next month</span>
+                      </div>
+                    )}
                     <div className="salary-breakdown">
                       <div className="breakdown-item">
                         <span className="breakdown-label">Base Salary</span>
@@ -551,7 +581,7 @@ export default function SalaryView({ staffData, onLogout }) {
                       {adjustmentRequests
                         .filter(adj => {
                           const adjMonth = adj.shiftMonth || adj.month;
-                          return adjMonth === currentMonth;
+                          return adjMonth === selectedMonth;
                         })
                         .map(adj => (
                         <div key={adj.id} className={`history-card ${adj.status} ${adj.adjustmentType}`}>
@@ -606,7 +636,7 @@ export default function SalaryView({ staffData, onLogout }) {
                       
                       {adjustmentRequests.filter(adj => {
                         const adjMonth = adj.shiftMonth || adj.month;
-                        return adjMonth === currentMonth;
+                        return adjMonth === selectedMonth;
                       }).length === 0 && (
                         <div className="empty-state">
                           <div className="empty-icon">📅</div>
@@ -629,7 +659,7 @@ export default function SalaryView({ staffData, onLogout }) {
                     <div className="section-badge">
                       {advanceRequests.filter(adv => {
                         const advanceMonth = adv.shiftMonth || adv.month;
-                        return advanceMonth === currentMonth;
+                        return advanceMonth === selectedMonth;
                       }).length}
                     </div>
                   </div>
@@ -645,7 +675,7 @@ export default function SalaryView({ staffData, onLogout }) {
                       {advanceRequests
                         .filter(adv => {
                           const advanceMonth = adv.shiftMonth || adv.month;
-                          return advanceMonth === currentMonth;
+                          return advanceMonth === selectedMonth;
                         })
                         .map(advance => (
                         <div key={advance.id} className={`history-card ${advance.status}`}>
@@ -702,7 +732,7 @@ export default function SalaryView({ staffData, onLogout }) {
                       
                       {advanceRequests.filter(adv => {
                         const advanceMonth = adv.shiftMonth || adv.month;
-                        return advanceMonth === currentMonth;
+                        return advanceMonth === selectedMonth;
                       }).length === 0 && (
                         <div className="empty-state">
                           <div className="empty-icon">📅</div>

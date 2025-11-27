@@ -1403,3 +1403,195 @@
 .mobile-main::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
 }
+/* Month Selection Section */
+.month-selection-section {
+  margin: 1rem 0;
+}
+
+.month-selector-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+}
+
+.month-selector-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.selector-icon {
+  font-size: 2rem;
+}
+
+.selector-content h3 {
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.selector-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0 0;
+  font-weight: 500;
+}
+
+.month-input-wrapper {
+  position: relative;
+}
+
+.month-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.month-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+/* Salary Card Component */
+.salary-item {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.salary-item:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.salary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.staff-details h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #2d3748;
+}
+
+.staff-details p {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.85rem;
+  color: #718096;
+}
+
+.btn-ghost-small {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  color: #4a5568;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-ghost-small:hover {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+}
+
+.salary-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #f7fafc;
+}
+
+.summary-item.base {
+  background: #edf2f7;
+  font-weight: 600;
+}
+
+.summary-item.positive {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.summary-item.negative {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.summary-item.info {
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.summary-item.total {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+}
+
+.summary-label {
+  font-size: 0.9rem;
+}
+
+.summary-value {
+  font-weight: 600;
+}
+
+.summary-value.highlight {
+  font-size: 1.2rem;
+}
+
+.summary-divider {
+  height: 2px;
+  background: #e2e8f0;
+  margin: 0.5rem 0;
+}
+
+.salary-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #fef3c7;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #92400e;
+}
+
+.note-icon {
+  font-size: 1rem;
+}
+
+.note-text {
+  flex: 1;
+  font-weight: 500;
+}

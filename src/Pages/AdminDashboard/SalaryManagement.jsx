@@ -14,6 +14,7 @@ import { db } from "../../firebase";
 import "./SalaryManagement.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getDayOffRates, saveDayOffRates, calculateMonthlyDaysOff, getEffectiveDayOffConfig, saveStaffDayOffConfig, deleteStaffDayOffConfig, isFirstDayOfMonth } from "../../config/dayOffRates";
+import SalaryCard from "./SalaryCard";
 
 export default function SalaryManagement({ onLogout }) {
   const [staffMembers, setStaffMembers] = useState([]);
@@ -40,6 +41,7 @@ export default function SalaryManagement({ onLogout }) {
   const [serviceChargeInput, setServiceChargeInput] = useState("");
   const [serviceChargeSaving, setServiceChargeSaving] = useState(false);
   const [serviceChargeUpdatedAt, setServiceChargeUpdatedAt] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7));
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -51,6 +53,17 @@ export default function SalaryManagement({ onLogout }) {
       date.setDate(date.getDate() + 1);
     }
     return date.toISOString().substring(0, 7);
+  };
+
+  // Check if selected month is current month
+  const isCurrentMonth = () => {
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    return selectedMonth === currentMonth;
+  };
+
+  // Check if selected month is finalized (not current month)
+  const isMonthFinalized = () => {
+    return !isCurrentMonth();
   };
 
   // Fetch day-off configuration
@@ -407,83 +420,84 @@ export default function SalaryManagement({ onLogout }) {
   };
 
   // Calculate total adjustments for a staff member using their specific OT rate
-  const getTotalAdjustments = (staffUid) => {
+  const getTotalAdjustments = (staffUid, month = selectedMonth) => {
     if (!adjustmentRequests[staffUid]) return 0;
     
-    const currentMonth = getShiftMonth(new Date());
-    const monthData = adjustmentRequests[staffUid][currentMonth] || { totalOTAmount: 0, totalShortAmount: 0 };
+    const monthData = adjustmentRequests[staffUid][month] || { totalOTAmount: 0, totalShortAmount: 0 };
     
     return monthData.totalOTAmount - monthData.totalShortAmount;
   };
 
   // Calculate total OT for a staff member
-  const getTotalOT = (staffUid) => {
+  const getTotalOT = (staffUid, month = selectedMonth) => {
     if (!adjustmentRequests[staffUid]) return 0;
     
-    const currentMonth = getShiftMonth(new Date());
-    return adjustmentRequests[staffUid][currentMonth]?.totalOTAmount || 0;
+    return adjustmentRequests[staffUid][month]?.totalOTAmount || 0;
   };
 
   // Calculate total Short Time for a staff member
-  const getTotalShort = (staffUid) => {
+  const getTotalShort = (staffUid, month = selectedMonth) => {
     if (!adjustmentRequests[staffUid]) return 0;
     
-    const currentMonth = getShiftMonth(new Date());
-    return adjustmentRequests[staffUid][currentMonth]?.totalShortAmount || 0;
+    return adjustmentRequests[staffUid][month]?.totalShortAmount || 0;
   };
 
   // Calculate total OT hours for a staff member
-  const getTotalOTHours = (staffUid) => {
+  const getTotalOTHours = (staffUid, month = selectedMonth) => {
     if (!adjustmentRequests[staffUid]) return 0;
     
-    const currentMonth = getShiftMonth(new Date());
-    return adjustmentRequests[staffUid][currentMonth]?.totalOTHours || 0;
+    return adjustmentRequests[staffUid][month]?.totalOTHours || 0;
   };
 
   // Calculate total Short Time hours for a staff member
-  const getTotalShortHours = (staffUid) => {
+  const getTotalShortHours = (staffUid, month = selectedMonth) => {
     if (!adjustmentRequests[staffUid]) return 0;
     
-    const currentMonth = getShiftMonth(new Date());
-    return adjustmentRequests[staffUid][currentMonth]?.totalShortHours || 0;
+    return adjustmentRequests[staffUid][month]?.totalShortHours || 0;
   };
 
   // Calculate total advances for a staff member
-  const getTotalAdvances = (staffUid) => {
+  const getTotalAdvances = (staffUid, month = selectedMonth) => {
     if (!approvedAdvances[staffUid]) return 0;
     
-    const currentMonth = getShiftMonth(new Date());
-    return approvedAdvances[staffUid][currentMonth] || 0;
+    return approvedAdvances[staffUid][month] || 0;
   };
 
   // Calculate day-off deduction/bonus using staff-specific config
-  const getDayOffAdjustment = (staffUid) => {
-    if (!isFirstDayOfMonth()) {
+  // Now accepts month parameter to get historical day-off data
+  const getDayOffAdjustment = async (staffUid, month = selectedMonth) => {
+    // For current month, return 0 (day-off not calculated yet)
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    if (month === currentMonth) {
       return 0;
     }
     
-    if (!staffDaysOff[staffUid] && staffDaysOff[staffUid] !== 0) return 0;
-    
-    const daysOff = staffDaysOff[staffUid];
-    const config = staffDayOffConfigs[staffUid] || dayOffConfig;
-    const { maxDaysOff, deductionPerDay, bonusPerDay } = config;
-    
-    if (daysOff > maxDaysOff) {
-      const excessDays = daysOff - maxDaysOff;
-      return -Math.abs(excessDays * deductionPerDay);
-    } else if (daysOff < maxDaysOff) {
-      const bonusDays = maxDaysOff - daysOff;
-      return bonusDays * bonusPerDay;
+    // For historical months, calculate day-off adjustment
+    try {
+      const daysOff = await calculateMonthlyDaysOff(staffUid, month, false);
+      const config = staffDayOffConfigs[staffUid] || dayOffConfig;
+      const { maxDaysOff, deductionPerDay, bonusPerDay } = config;
+      
+      if (daysOff > maxDaysOff) {
+        const excessDays = daysOff - maxDaysOff;
+        return -Math.abs(excessDays * deductionPerDay);
+      } else if (daysOff < maxDaysOff) {
+        const bonusDays = maxDaysOff - daysOff;
+        return bonusDays * bonusPerDay;
+      }
+      
+      return 0;
+    } catch (error) {
+      console.error('Error calculating day-off adjustment:', error);
+      return 0;
     }
-    
-    return 0;
   };
 
   // Calculate net salary
-  const calculateNetSalary = (staffUid, monthlySalary) => {
-    const advances = getTotalAdvances(staffUid);
-    const adjustments = getTotalAdjustments(staffUid);
-    const dayOffAdjustment = getDayOffAdjustment(staffUid);
+  const calculateNetSalary = async (staffUid, monthlySalary, month = selectedMonth) => {
+    const advances = getTotalAdvances(staffUid, month);
+    const adjustments = getTotalAdjustments(staffUid, month);
+    const dayOffAdjustment = await getDayOffAdjustment(staffUid, month);
     
     return Math.max(0, monthlySalary + adjustments + dayOffAdjustment - advances);
   };
@@ -502,18 +516,15 @@ export default function SalaryManagement({ onLogout }) {
     let totalAdvances = 0;
     let totalOT = 0;
     let totalShort = 0;
-    let totalNetSalary = 0;
     
     Object.keys(salaries).forEach(staffUid => {
-      const salary = salaries[staffUid];
-      const advances = getTotalAdvances(staffUid);
-      const ot = getTotalOT(staffUid);
-      const short = getTotalShort(staffUid);
+      const advances = getTotalAdvances(staffUid, selectedMonth);
+      const ot = getTotalOT(staffUid, selectedMonth);
+      const short = getTotalShort(staffUid, selectedMonth);
       
       totalAdvances += advances;
       totalOT += ot;
       totalShort += short;
-      totalNetSalary += calculateNetSalary(staffUid, salary.monthlySalary);
     });
     
     return { 
@@ -523,7 +534,7 @@ export default function SalaryManagement({ onLogout }) {
       totalAdvances,
       totalOT,
       totalShort,
-      totalNetSalary,
+      totalNetSalary: 0, // Will be calculated async in the view
       netAdjustments: totalOT - totalShort
     };
   };
@@ -655,6 +666,30 @@ export default function SalaryManagement({ onLogout }) {
 
       {/* Main Content */}
       <main className="mobile-main">
+        {/* Month Selection Section */}
+        <section className="month-selection-section">
+          <div className="month-selector-card">
+            <div className="month-selector-header">
+              <div className="selector-icon">📅</div>
+              <div className="selector-content">
+                <h3 className="selector-title">View Salaries for</h3>
+                <p className="selector-subtitle">
+                  {isCurrentMonth() ? '🟢 CURRENT MONTH - RUNNING TOTALS' : '✅ FINALIZED SALARY'}
+                </p>
+              </div>
+            </div>
+            <div className="month-input-wrapper">
+              <input 
+                type="month" 
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                max={new Date().toISOString().substring(0, 7)}
+                className="month-input"
+              />
+            </div>
+          </div>
+        </section>
+
         {/* Hero Section */}
         <section className="hero-section">
           <div className="hero-card">
@@ -664,7 +699,7 @@ export default function SalaryManagement({ onLogout }) {
                 <span>Professional Payroll</span>
               </div>
               <h1 className="hero-title">
-                Salary Management
+                Salary Management - {new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </h1>
               <p className="hero-subtitle">
                 Set and manage staff salaries with custom OT rates and day-off policies
@@ -798,41 +833,32 @@ export default function SalaryManagement({ onLogout }) {
           </div>
         </section>
 
-        {/* Day-Off Notice */}
-        {!isFirstDayOfMonth() && (
-          <section className="notice-section">
-            <div className="notice-card info">
-              <div className="notice-icon">📅</div>
+        {/* Month Status Notice */}
+        <section className="notice-section">
+          {isCurrentMonth() ? (
+            <div className="notice-card warning">
+              <div className="notice-icon">🟡</div>
               <div className="notice-content">
-                <h3 className="notice-title">Day-Off Calculations</h3>
+                <h3 className="notice-title">🟢 RUNNING TOTAL - NOT FINAL</h3>
                 <p className="notice-message">
-                  Day-off bonuses and deductions are calculated and applied <strong>only on the 1st day of each month</strong>.
+                  Viewing <strong>current month</strong> data. Day-off adjustments will be calculated on the 1st of next month.
+                  OT, Short-Time, and Advances shown are running totals for {new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.
                 </p>
               </div>
             </div>
-          </section>
-        )}
-
-        {isFirstDayOfMonth() && (
-          <section className="notice-section">
+          ) : (
             <div className="notice-card success">
               <div className="notice-icon">✅</div>
               <div className="notice-content">
-                <h3 className="notice-title">Day-Off Report Available</h3>
+                <h3 className="notice-title">✅ FINALIZED SALARY</h3>
                 <p className="notice-message">
-                  Day-off adjustments for last month are now calculated and applied to net salaries.
+                  Viewing <strong>historical month</strong> data for {new Date(selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.
+                  All adjustments including day-off calculations are finalized.
                 </p>
-                <button 
-                  className="btn-outline"
-                  onClick={() => safeNavigate('/admin/dayoff-report')}
-                >
-                  <span className="btn-icon">📊</span>
-                  <span>View Full Report</span>
-                </button>
               </div>
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
         {/* Day-Off Configuration */}
         <section className="config-section">
@@ -1269,98 +1295,22 @@ export default function SalaryManagement({ onLogout }) {
                   </div>
                 ) : (
                   <div className="salaries-grid">
-                    {filteredSalaries.map(salary => {
-                      const totalAdvances = getTotalAdvances(salary.staffUid);
-                      const totalOT = getTotalOT(salary.staffUid);
-                      const totalShort = getTotalShort(salary.staffUid);
-                      const totalOTHours = getTotalOTHours(salary.staffUid);
-                      const totalShortHours = getTotalShortHours(salary.staffUid);
-                      const dayOffAdjustment = getDayOffAdjustment(salary.staffUid);
-                      const daysOff = staffDaysOff[salary.staffUid] || 0;
-                      const netSalary = calculateNetSalary(salary.staffUid, salary.monthlySalary);
-                      const advanceUsage = getAdvanceUsagePercentage(salary.staffUid, salary.monthlySalary);
-                      const staffOtRate = getOtRate(salary.staffUid);
-                      
-                      return (
-                        <div key={salary.staffUid} className="salary-card">
-                          <div className="card-header">
-                            <div className="staff-profile">
-                              <div className="staff-avatar">
-                                {salary.staffName?.charAt(0).toUpperCase()}
-                              </div>
-                              <div className="staff-details">
-                                <h3 className="staff-name">{salary.staffName}</h3>
-                                <p className="staff-id">ID: {salary.staffId}</p>
-                              </div>
-                            </div>
-                            <div className="salary-display">
-                              <div className="base-salary">{formatCurrency(salary.monthlySalary)}</div>
-                              <div className="salary-period">/month</div>
-                            </div>
-                          </div>
-
-                          <div className="card-content">
-                            {/* Financial Summary */}
-                            <div className="financial-summary">
-                              <div className="summary-item">
-                                <span className="summary-label">Base Salary</span>
-                                <span className="summary-value">{formatCurrency(salary.monthlySalary)}</span>
-                              </div>
-                              {totalOT > 0 && (
-                                <div className="summary-item positive">
-                                  <span className="summary-label">Overtime</span>
-                                  <span className="summary-value">
-                                    +{formatCurrency(totalOT)}
-                                  </span>
-                                </div>
-                              )}
-                              {totalShort > 0 && (
-                                <div className="summary-item negative">
-                                  <span className="summary-label">Short Time</span>
-                                  <span className="summary-value">
-                                    -{formatCurrency(totalShort)}
-                                  </span>
-                                </div>
-                              )}
-                              {totalAdvances > 0 && (
-                                <div className="summary-item warning">
-                                  <span className="summary-label">Advances</span>
-                                  <span className="summary-value">-{formatCurrency(totalAdvances)}</span>
-                                </div>
-                              )}
-                              {dayOffAdjustment !== 0 && (
-                                <div className={`summary-item ${dayOffAdjustment > 0 ? 'positive' : 'negative'}`}>
-                                  <span className="summary-label">
-                                    Day-Off {dayOffAdjustment > 0 ? 'Bonus' : 'Deduction'}
-                                  </span>
-                                  <span className="summary-value">
-                                    {dayOffAdjustment > 0 ? '+' : ''}{formatCurrency(dayOffAdjustment)}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="summary-item total">
-                                <span className="summary-label">Net Salary</span>
-                                <span className="summary-value">{formatCurrency(netSalary)}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="card-actions">
-                            <button 
-                              className="btn-secondary"
-                              onClick={() => handleEditSalary({
-                                staffUid: salary.staffUid,
-                                staffName: salary.staffName,
-                                staffId: salary.staffId
-                              })}
-                            >
-                              <span className="btn-icon">✏️</span>
-                              <span>Edit Salary</span>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {filteredSalaries.map(salary => (
+                      <SalaryCard
+                        key={salary.staffUid}
+                        salary={salary}
+                        getTotalOT={getTotalOT}
+                        getTotalShort={getTotalShort}
+                        getTotalAdvances={getTotalAdvances}
+                        getDayOffAdjustment={getDayOffAdjustment}
+                        getTotalOTHours={getTotalOTHours}
+                        getTotalShortHours={getTotalShortHours}
+                        formatCurrency={formatCurrency}
+                        handleEditSalary={handleEditSalary}
+                        selectedMonth={selectedMonth}
+                        isCurrentMonth={isCurrentMonth}
+                      />
+                    ))}
                   </div>
                 )}
               </section>
