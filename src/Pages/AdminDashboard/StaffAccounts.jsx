@@ -1,8 +1,8 @@
 // src/Pages/AdminDashboard/StaffAccounts.jsx
 import { useState, useEffect } from "react";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "../../firebase";
-import { collection, doc, setDoc, getDocs, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, doc, setDoc, getDocs, query, where, orderBy, onSnapshot, updateDoc } from "firebase/firestore";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./StaffAccounts.css";
 
@@ -22,6 +22,12 @@ export default function StaffAccounts({ onLogout }) {
   // Validation messages
   const [usernameError, setUsernameError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  
+  // Password reset states
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   // Load all staff accounts
   useEffect(() => {
@@ -172,6 +178,68 @@ export default function StaffAccounts({ onLogout }) {
   // Notification helper
   const showNotification = (msg, type = "info") => {
     alert(msg); // Replace with toast notification in production
+  };
+
+  // Generate random password for reset
+  const generateResetPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
+    let password = "";
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  // Open reset password modal
+  const handleOpenResetModal = (staff) => {
+    setSelectedStaff(staff);
+    setNewPassword(generateResetPassword());
+    setResetModalOpen(true);
+  };
+
+  // Close reset password modal
+  const handleCloseResetModal = () => {
+    setResetModalOpen(false);
+    setSelectedStaff(null);
+    setNewPassword("");
+  };
+
+  // Handle password reset
+  const handleResetPassword = async () => {
+    if (!selectedStaff || !newPassword) {
+      showNotification("Error: Missing staff information or password", "error");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      showNotification("Password must be at least 6 characters", "error");
+      return;
+    }
+
+    setResettingPassword(true);
+
+    try {
+      // Update staff document to indicate password has been reset
+      await updateDoc(doc(db, "staff", selectedStaff.id), {
+        isFirstLogin: true,
+        passwordResetAt: new Date().toISOString(),
+        passwordResetBy: "admin"
+      });
+
+      // Show success message with credentials
+      const message = `✅ Password Reset Successful!\n\nStaff: ${selectedStaff.staffName}\nUsername: ${selectedStaff.username}\nNew Password: ${newPassword}\n\n⚠️ Important: Please provide these credentials to ${selectedStaff.staffName}. They will need to change this password on first login.\n\n📋 Copy this information before closing.`;
+      
+      setSuccessMessage(message);
+      handleCloseResetModal();
+
+      showNotification("Password reset successfully! Please provide the new credentials to the staff member.", "success");
+
+    } catch (error) {
+      console.error("Password reset error:", error);
+      showNotification("❌ Password reset failed: " + error.message, "error");
+    } finally {
+      setResettingPassword(false);
+    }
   };
 
   // Navigation helpers
@@ -379,6 +447,7 @@ export default function StaffAccounts({ onLogout }) {
                       <th>Username</th>
                       <th>Created</th>
                       <th>Status</th>
+                      <th>Reset Password</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -397,6 +466,16 @@ export default function StaffAccounts({ onLogout }) {
                             <span className="badge badge-complete">Active</span>
                           )}
                         </td>
+                        <td className="staff-actions">
+                          <button
+                            className="action-btn reset-btn"
+                            onClick={() => handleOpenResetModal(staff)}
+                            title="Reset Password"
+                          >
+                            <span className="action-icon">🔑</span>
+                            <span className="action-text">Reset Password</span>
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -406,6 +485,95 @@ export default function StaffAccounts({ onLogout }) {
           )}
         </section>
       </main>
+
+      {/* Password Reset Modal */}
+      {resetModalOpen && selectedStaff && (
+        <div className="modal-overlay" onClick={handleCloseResetModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>🔑 Reset Password</h3>
+              <button className="modal-close" onClick={handleCloseResetModal}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="staff-info-box">
+                <div className="info-row">
+                  <span className="info-label">Staff Name:</span>
+                  <span className="info-value">{selectedStaff.staffName}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Staff ID:</span>
+                  <span className="info-value">{selectedStaff.staffId}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Username:</span>
+                  <span className="info-value">@{selectedStaff.username}</span>
+                </div>
+              </div>
+
+              <div className="password-section">
+                <label className="form-label">
+                  New Temporary Password
+                  <span className="label-help">Staff must change on first login</span>
+                </label>
+                <div className="password-input-group">
+                  <input
+                    type="text"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="form-input"
+                    placeholder="Enter new password"
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    className="generate-btn"
+                    onClick={() => setNewPassword(generateResetPassword())}
+                  >
+                    <span className="generate-icon">🎲</span>
+                    <span className="generate-text">Generate</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="warning-box">
+                <div className="warning-icon">⚠️</div>
+                <div className="warning-text">
+                  <strong>Important:</strong> After resetting, save the new password and provide it to {selectedStaff.staffName}. 
+                  The staff member will need to log in with this password and set a new one.
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="btn-cancel"
+                onClick={handleCloseResetModal}
+                disabled={resettingPassword}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-confirm"
+                onClick={handleResetPassword}
+                disabled={resettingPassword || newPassword.length < 6}
+              >
+                {resettingPassword ? (
+                  <>
+                    <div className="spinner-small"></div>
+                    <span>Resetting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔑</span>
+                    <span>Reset Password</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Navigation */}
       <nav className="bottom-navigation">
