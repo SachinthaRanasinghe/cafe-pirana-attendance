@@ -12,6 +12,21 @@ dist
 dist-ssr
 *.local
 
+# Environment variables - NEVER COMMIT!
+.env
+.env.local
+.env.production
+.env.development
+
+# Generated Firebase config (contains secrets from .env)
+public/firebase-config.js
+
+# Firebase
+.firebase
+.firebaserc
+firebase.json
+firestore.indexes.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

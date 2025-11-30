@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signInWithEmailAndPassword, updatePassword } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -15,6 +15,39 @@ export default function Login({ onStaffLogin }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [staffProfile, setStaffProfile] = useState(null);
+  
+  // Live server time state
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Format time for display (simplified for easier reading)
+  const formatDateTime = (date) => {
+    const options = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    };
+    return date.toLocaleString('en-US', options);
+  };
+
+  // Get current month for display (using LOCAL time, not UTC)
+  const getCurrentMonth = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`; // Returns "2025-12" based on local time
+  };
 
   // 🔐 Handle Password Reset (First Login)
   const handlePasswordReset = async (e) => {
@@ -312,6 +345,19 @@ export default function Login({ onStaffLogin }) {
           <p>
             Authorized staff access only. Contact administrator if you need an account.
           </p>
+        </div>
+
+        {/* 🕐 Live System Time */}
+        <div className="server-time-display">
+          <div className="server-time-icon">🕐</div>
+          <div className="server-time-content">
+            <div className="server-time-label">System Time</div>
+            <div className="server-time-value">{formatDateTime(currentTime)}</div>
+            <div className="server-time-month">
+              Current Month: {getCurrentMonth(currentTime)} • {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+              {currentTime.getHours() >= 18 && " • Shift logic active"}
+            </div>
+          </div>
         </div>
       </div>
     </div>

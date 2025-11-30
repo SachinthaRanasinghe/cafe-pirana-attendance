@@ -2,14 +2,17 @@
 importScripts("https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/9.6.10/firebase-messaging-compat.js");
 
-// Initialize Firebase
-firebase.initializeApp({
-  apiKey: "AIzaSyBrOI8XqyYzWgE-sKMEjJMdeGtoKz7Pt2o",
-  authDomain: "cafe-pirana-attendance.firebaseapp.com",
-  projectId: "cafe-pirana-attendance",
-  storageBucket: "cafe-pirana-attendance.appspot.com",
-  messagingSenderId: "1009772109491",
-  appId: "1:1009772109491:web:5d0d28f9495e016567dac6"
+// Load Firebase configuration from generated config file
+importScripts("/firebase-config.js");
+
+// Initialize Firebase with config from environment variables
+firebase.initializeApp(self.FIREBASE_CONFIG || {
+  apiKey: "YOUR_API_KEY_HERE",
+  authDomain: "YOUR_AUTH_DOMAIN_HERE",
+  projectId: "YOUR_PROJECT_ID_HERE",
+  storageBucket: "YOUR_STORAGE_BUCKET_HERE",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE",
+  appId: "YOUR_APP_ID_HERE"
 });
 
 const messaging = firebase.messaging();

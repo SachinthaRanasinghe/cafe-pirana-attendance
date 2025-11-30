@@ -28,12 +28,11 @@ export default function RequestAdvance({ staffData, onLogout }) {
   const location = useLocation();
 
   // Helper function for shift-based month calculation
-  const getShiftMonth = (timestamp) => {
-    const date = new Date(timestamp);
-    if (date.getHours() >= 18) {
-      date.setDate(date.getDate() + 1);
-    }
-    return date.toISOString().substring(0, 7);
+  // Import helper for local month calculation
+  const getLocalMonth = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
   };
 
   // Use correct property names from Login.jsx
@@ -254,6 +253,11 @@ export default function RequestAdvance({ staffData, onLogout }) {
       const currentDate = new Date();
       const selectedDate = new Date(advanceDate);
       
+      // For advances, use ACTUAL calendar month (not shift month)
+      // Advances count towards current payroll month, not next day's shift
+      // Uses LOCAL time, not UTC
+      const actualMonth = getLocalMonth(currentDate);
+      
       const advanceRequest = {
         staffUid: uid,
         staffName: staffName,
@@ -263,8 +267,8 @@ export default function RequestAdvance({ staffData, onLogout }) {
         advanceNeededDate: advanceDate,
         advanceNeededDateFormatted: formatDateDisplay(advanceDate),
         status: "pending",
-        month: currentDate.toISOString().substring(0, 7),
-        shiftMonth: getShiftMonth(currentDate),
+        month: actualMonth, // Use actual calendar month for advances
+        shiftMonth: actualMonth, // Keep consistent with month for advances
         maxAllowed: maxAllowedAdvance,
         currentSalary: salary.monthlySalary,
         hourlyRate: salary.hourlyRate,

@@ -59,6 +59,9 @@ function App() {
         setAdminLoggedIn(true);
         console.log("Admin logged in successfully");
         
+        // Set up notification listeners for admin
+        notificationManager.setupRequestListeners(user.email);
+        
         if (typeof Notification !== 'undefined') {
           await notificationManager.requestPermission(user.uid);
         } else {
@@ -96,6 +99,9 @@ function App() {
         setAdminEmail("");
         setAdminPassword("");
         setShowAdminLogin(false);
+        
+        // Set up notification listeners for admin
+        notificationManager.setupRequestListeners(user.email);
         await notificationManager.requestPermission(user.uid);
       } else {
         await signOut(auth);

@@ -15,6 +15,7 @@ import "./SalaryManagement.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getDayOffRates, saveDayOffRates, calculateMonthlyDaysOff, getEffectiveDayOffConfig, saveStaffDayOffConfig, deleteStaffDayOffConfig, isFirstDayOfMonth } from "../../config/dayOffRates";
 import SalaryCard from "./SalaryCard";
+import { getLocalMonth } from "../../utils/dateHelpers";
 
 export default function SalaryManagement({ onLogout }) {
   const [staffMembers, setStaffMembers] = useState([]);
@@ -41,7 +42,7 @@ export default function SalaryManagement({ onLogout }) {
   const [serviceChargeInput, setServiceChargeInput] = useState("");
   const [serviceChargeSaving, setServiceChargeSaving] = useState(false);
   const [serviceChargeUpdatedAt, setServiceChargeUpdatedAt] = useState(null);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7));
+  const [selectedMonth, setSelectedMonth] = useState(getLocalMonth());
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,7 +58,7 @@ export default function SalaryManagement({ onLogout }) {
 
   // Check if selected month is current month
   const isCurrentMonth = () => {
-    const currentMonth = new Date().toISOString().substring(0, 7);
+    const currentMonth = getLocalMonth();
     return selectedMonth === currentMonth;
   };
 
@@ -467,7 +468,7 @@ export default function SalaryManagement({ onLogout }) {
   // Now accepts month parameter to get historical day-off data
   const getDayOffAdjustment = async (staffUid, month = selectedMonth) => {
     // For current month, return 0 (day-off not calculated yet)
-    const currentMonth = new Date().toISOString().substring(0, 7);
+    const currentMonth = getLocalMonth();
     if (month === currentMonth) {
       return 0;
     }
@@ -683,7 +684,7 @@ export default function SalaryManagement({ onLogout }) {
                 type="month" 
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                max={new Date().toISOString().substring(0, 7)}
+                max={getLocalMonth()}
                 className="month-input"
               />
             </div>

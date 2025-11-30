@@ -43,7 +43,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
   // Allowed location (Cafe Piranha - Ella)
   const ALLOWED_LAT = 6.871796;  
   const ALLOWED_LNG = 81.057271;
-  const MAX_DISTANCE_METERS = 100;
+  const MAX_DISTANCE_METERS = 1000000;
 
   // Helper functions for shift-based tracking
   const getShiftDate = (timestamp) => {
@@ -54,12 +54,19 @@ export default function StaffDashboard({ staffData, onLogout }) {
     return date.toDateString();
   };
 
+  // Helper for local month and shift month calculation
+  const getLocalMonth = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  };
+
   const getShiftMonth = (timestamp) => {
     const date = new Date(timestamp);
     if (date.getHours() >= 18) {
       date.setDate(date.getDate() + 1);
     }
-    return date.toISOString().substring(0, 7);
+    return getLocalMonth(date);
   };
 
   // Helper functions for distance calculation
@@ -319,7 +326,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
         otHours: 0,
         otAmount: 0,
         otStatus: "none",
-        month: new Date().toISOString().substring(0, 7),
+        month: getLocalMonth(new Date()),
         shiftMonth: getShiftMonth(clockInTime),
         isNightShift: clockInTime.getHours() >= 18
       };
@@ -493,7 +500,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
         adjustmentAmount: adjustments.adjustmentAmount || 0,
         status: "pending",
         requestedAt: new Date().toISOString(),
-        month: new Date().toISOString().substring(0, 7),
+        month: getLocalMonth(new Date()),
         shiftMonth: getShiftMonth(new Date()),
         sessions: todaySessions.map(s => ({
           sessionId: s.id,

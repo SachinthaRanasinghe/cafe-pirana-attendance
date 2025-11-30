@@ -3,14 +3,15 @@ import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { doc, setDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 
+// Firebase configuration using environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyBrOI8XqyYzWgE-sKMEjJMdeGtoKz7Pt2o",
-  authDomain: "cafe-pirana-attendance.firebaseapp.com",
-  projectId: "cafe-pirana-attendance",
-  storageBucket: "cafe-pirana-attendance.appspot.com",
-  messagingSenderId: "1009772109491",
-  appId: "1:1009772109491:web:5d0d28f9495e016567dac6",
-  measurementId: "G-QQB2PXFPWK"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 class NotificationManager {
@@ -39,8 +40,7 @@ class NotificationManager {
       }
     }
 
-    // Always set up Firestore listeners for pending requests
-    this.setupRequestListeners();
+    // Note: setupRequestListeners will be called after user login with email
   }
 
   checkIfIOS() {
@@ -75,33 +75,53 @@ class NotificationManager {
   }
 
   // Set up Firestore listeners to track pending requests
-  setupRequestListeners() {
-    // Listen for OT requests
-    const otQuery = query(
-      collection(db, 'adjustmentRequests'),
-      where('status', '==', 'pending')
-    );
+  setupRequestListeners(userEmail) {
+    // Only set up listeners for admin users
+    if (userEmail !== 'admin@cafepiranha.com') {
+      console.log('Skipping request listeners - not admin user');
+      return;
+    }
 
-    const otUnsubscribe = onSnapshot(otQuery, (snapshot) => {
-      this.pendingRequests.ot = snapshot.size;
-      console.log(`Pending OT requests: ${snapshot.size}`);
-      this.updateUI();
-    });
+    try {
+      // Listen for OT requests
+      const otQuery = query(
+        collection(db, 'adjustmentRequests'),
+        where('status', '==', 'pending')
+      );
 
-    // Listen for advance requests
-    const advanceQuery = query(
-      collection(db, 'advanceRequests'),
-      where('status', '==', 'pending')
-    );
+      const otUnsubscribe = onSnapshot(otQuery, 
+        (snapshot) => {
+          this.pendingRequests.ot = snapshot.size;
+          console.log(`Pending OT requests: ${snapshot.size}`);
+          this.updateUI();
+        },
+        (error) => {
+          console.error('Error listening to OT requests:', error);
+        }
+      );
 
-    const advanceUnsubscribe = onSnapshot(advanceQuery, (snapshot) => {
-      this.pendingRequests.advance = snapshot.size;
-      console.log(`Pending Advance requests: ${snapshot.size}`);
-      this.updateUI();
-    });
+      // Listen for advance requests
+      const advanceQuery = query(
+        collection(db, 'advanceRequests'),
+        where('status', '==', 'pending')
+      );
 
-    // Store unsubscribe functions
-    this.unsubscribeListeners = [otUnsubscribe, advanceUnsubscribe];
+      const advanceUnsubscribe = onSnapshot(advanceQuery,
+        (snapshot) => {
+          this.pendingRequests.advance = snapshot.size;
+          console.log(`Pending Advance requests: ${snapshot.size}`);
+          this.updateUI();
+        },
+        (error) => {
+          console.error('Error listening to advance requests:', error);
+        }
+      );
+
+      // Store unsubscribe functions
+      this.unsubscribeListeners = [otUnsubscribe, advanceUnsubscribe];
+    } catch (error) {
+      console.error('Error setting up request listeners:', error);
+    }
   }
 
   // Update UI when request counts change

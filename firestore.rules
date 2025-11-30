@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null &&
+             request.auth.token.email == 'admin@cafepiranha.com';
+    }
+
+    function isOwner(userId) {
+      return request.auth != null &&
+             request.auth.uid == userId;
+    }
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // STAFF
+    match /staff/{staffId} {
+      allow read: if true;
+      allow create, update: if isAdmin();
+      allow update: if isOwner(staffId);
+      allow delete: if false;
+    }
+
+    // SALARIES
+    match /salaries/{id} {
+      allow read: if isAdmin() ||
+                   (isAuth() && resource.data.staffUid == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    // ADJUSTMENT REQUESTS
+    match /adjustmentRequests/{id} {
+      allow read: if isAdmin() ||
+                   (isAuth() && resource.data.staffUid == request.auth.uid);
+      allow create: if isAuth() &&
+                    request.resource.data.staffUid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ADVANCE REQUESTS
+    match /advanceRequests/{id} {
+      allow read: if isAdmin() ||
+                   (isAuth() && resource.data.staffUid == request.auth.uid);
+      allow create: if isAuth() &&
+                    request.resource.data.staffUid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // SESSIONS (Clock In/Out)
+    match /sessions/{id} {
+      allow read: if isAdmin() ||
+                   (isAuth() && resource.data.staffUid == request.auth.uid);
+      allow create: if isAuth();
+      allow update: if isAdmin() ||
+                     (isAuth() && resource.data.staffUid == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // WEEKLY AVAILABILITY
+    match /weeklyAvailability/{id} {
+      allow read: if isAdmin() ||
+                   (isAuth() && resource.data.staffUid == request.auth.uid);
+      allow write: if isAdmin() ||
+                    (isAuth() && request.resource.data.staffUid == request.auth.uid);
+    }
+
+    // CURRENT AVAILABILITY
+    match /currentAvailability/{id} {
+      allow read: if isAdmin() ||
+                   (isAuth() && resource.data.staffUid == request.auth.uid);
+      allow write: if isAdmin() ||
+                    (isAuth() && request.resource.data.staffUid == request.auth.uid);
+    }
+
+    // AVAILABILITIES (for current week availability)
+    match /availabilities/{staffId} {
+      allow read: if isAdmin() || isOwner(staffId);
+      allow write: if isAdmin() || isOwner(staffId);
+    }
+
+    // SYSTEM CONFIG
+    match /systemConfig/{id} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // STAFF-Specific Day-Off Config
+    match /staffDayOffConfig/{staffId} {
+      allow read: if isAdmin() || isOwner(staffId);
+      allow write: if isAdmin();
+    }
+
+    // SERVICE CHARGE
+    match /serviceCharge/{id} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /passwordResetLogs/{id} {
+      allow read, create: if isAdmin();
+    }
+
+    // Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

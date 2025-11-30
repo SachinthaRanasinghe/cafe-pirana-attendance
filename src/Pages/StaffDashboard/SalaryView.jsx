@@ -8,6 +8,8 @@ import {
   doc
 } from "firebase/firestore";
 import { db } from "../../firebase";
+import { calculateMonthlyDaysOff, getEffectiveDayOffConfig } from "../../config/dayOffRates";
+import { getLocalMonth, getShiftMonth } from "../../utils/dateHelpers";
 import "./SalaryView.css";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -15,21 +17,78 @@ export default function SalaryView({ staffData, onLogout }) {
   const [salary, setSalary] = useState(null);
   const [advanceRequests, setAdvanceRequests] = useState([]);
   const [adjustmentRequests, setAdjustmentRequests] = useState([]);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7));
+  const [selectedMonth, setSelectedMonth] = useState(getLocalMonth());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [serviceCharge, setServiceCharge] = useState(0);
+  const [dayOffAdjustment, setDayOffAdjustment] = useState(null);
+  const [loadingDayOff, setLoadingDayOff] = useState(false);
 
-  // Check if selected month is current month
+  // Check if selected month is current month (using local time)
   const isCurrentMonth = () => {
-    const currentMonth = new Date().toISOString().substring(0, 7);
+    const currentMonth = getLocalMonth();
     return selectedMonth === currentMonth;
+  };
+
+  // Check if selected month is current shift month
+  const isCurrentShiftMonth = () => {
+    const currentShiftMonth = getShiftMonth(new Date());
+    return selectedMonth === currentShiftMonth;
   };
 
   const navigate = useNavigate();
   const location = useLocation();
   
   const { staffName, staffId, uid } = staffData || {};
+
+  // Fetch day-off adjustment for previous months
+  useEffect(() => {
+    const fetchDayOffAdjustment = async () => {
+      if (!uid || !salary) return;
+      
+      // Only calculate for previous months (not current month)
+      if (isCurrentMonth()) {
+        setDayOffAdjustment(null);
+        return;
+      }
+
+      setLoadingDayOff(true);
+      
+      try {
+        // Get the day-off count for the month
+        const daysOff = await calculateMonthlyDaysOff(uid, selectedMonth, false);
+        console.log('[SalaryView] Days off taken:', daysOff);
+        
+        // Get the day-off configuration (rates)
+        const config = await getEffectiveDayOffConfig(uid);
+        console.log('[SalaryView] Day-off config:', config);
+        
+        const { maxDaysOff, deductionPerDay, bonusPerDay } = config;
+        
+        // Calculate adjustment in rupees (same as admin)
+        let adjustment = 0;
+        if (daysOff > maxDaysOff) {
+          const excessDays = daysOff - maxDaysOff;
+          adjustment = -Math.abs(excessDays * deductionPerDay); // Deduction
+          console.log('[SalaryView] Excess days:', excessDays, 'Deduction:', adjustment);
+        } else if (daysOff < maxDaysOff) {
+          const bonusDays = maxDaysOff - daysOff;
+          adjustment = bonusDays * bonusPerDay; // Bonus
+          console.log('[SalaryView] Bonus days:', bonusDays, 'Bonus:', adjustment);
+        }
+        
+        setDayOffAdjustment(adjustment);
+        console.log('[SalaryView] Final day-off adjustment:', adjustment);
+      } catch (error) {
+        console.error('[SalaryView] Error calculating day-off:', error);
+        setDayOffAdjustment(0);
+      } finally {
+        setLoadingDayOff(false);
+      }
+    };
+
+    fetchDayOffAdjustment();
+  }, [uid, selectedMonth, salary]);
 
   // Fetch staff salary
   useEffect(() => {
@@ -68,6 +127,8 @@ export default function SalaryView({ staffData, onLogout }) {
       
       requests.sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
       setAdvanceRequests(requests);
+    }, (error) => {
+      console.error('[SalaryView] Error fetching advance requests:', error);
     });
 
     return () => unsubscribe();
@@ -114,6 +175,7 @@ export default function SalaryView({ staffData, onLogout }) {
     const serviceChargeAmount = serviceCharge || 0;
     
     // Calculate approved advances for selected month
+    // Use shiftMonth field (which is set at request creation time)
     const monthAdvances = advanceRequests
       .filter(req => {
         const requestMonth = req.shiftMonth || req.month;
@@ -137,13 +199,22 @@ export default function SalaryView({ staffData, onLogout }) {
       }, 0);
 
     // NET SALARY CALCULATION: DO NOT ADD SERVICE CHARGE
-    const netSalary = Math.max(0, basicSalary + monthAdjustments - monthAdvances);
+    // For previous months, include day-off adjustment
+    let netSalary = basicSalary + monthAdjustments - monthAdvances;
+    
+    // Add day-off adjustment for previous months (if available)
+    if (!isCurrentMonth() && dayOffAdjustment !== null) {
+      netSalary += dayOffAdjustment;
+    }
+    
+    netSalary = Math.max(0, netSalary);
 
     return {
       basicSalary,
       advances: monthAdvances,
       adjustments: monthAdjustments,
       netSalary,
+      dayOffAmount: dayOffAdjustment,
       remainingSalary: Math.max(0, basicSalary - monthAdvances),
       serviceCharge: serviceChargeAmount, // Only for display
       otAmount: adjustmentRequests
@@ -346,7 +417,7 @@ export default function SalaryView({ staffData, onLogout }) {
                 type="month" 
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                max={new Date().toISOString().substring(0, 7)}
+                max={getLocalMonth()}
                 className="month-input"
               />
               <div className="calendar-icon">📅</div>
@@ -462,6 +533,21 @@ export default function SalaryView({ staffData, onLogout }) {
                           <span className="breakdown-value">-{formatCurrency(monthStats.advances)}</span>
                         </div>
                       )}
+                      {/* Day-off adjustment - only for previous months */}
+                      {!isCurrentMonth() && loadingDayOff && (
+                        <div className="breakdown-item info">
+                          <span className="breakdown-label">Day-Off Adjustment</span>
+                          <span className="breakdown-value">Calculating...</span>
+                        </div>
+                      )}
+                      {!isCurrentMonth() && !loadingDayOff && dayOffAdjustment !== null && dayOffAdjustment !== 0 && (
+                        <div className={`breakdown-item ${dayOffAdjustment > 0 ? 'positive' : 'negative'}`}>
+                          <span className="breakdown-label">Day-Off {dayOffAdjustment > 0 ? 'Bonus' : 'Deduction'}</span>
+                          <span className="breakdown-value">
+                            {dayOffAdjustment > 0 ? '+' : ''}{formatCurrency(dayOffAdjustment)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -565,7 +651,7 @@ export default function SalaryView({ staffData, onLogout }) {
                     <div className="section-badge">
                       {adjustmentRequests.filter(adj => {
                         const adjMonth = adj.shiftMonth || adj.month;
-                        return adjMonth === currentMonth;
+                        return adjMonth === selectedMonth;
                       }).length}
                     </div>
                   </div>
