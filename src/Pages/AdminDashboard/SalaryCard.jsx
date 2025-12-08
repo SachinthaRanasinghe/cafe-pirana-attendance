@@ -1,5 +1,6 @@
 // Salary Card Component - Handles async day-off calculations
 import { useState, useEffect } from 'react';
+import { calculateNetSalaryWithWarning } from '../../utils/validationHelpers';
 
 export default function SalaryCard({ 
   salary, 
@@ -17,6 +18,7 @@ export default function SalaryCard({
   const [dayOffAdjustment, setDayOffAdjustment] = useState(0);
   const [netSalary, setNetSalary] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [salaryWarning, setSalaryWarning] = useState(null);
 
   useEffect(() => {
     const calculateSalary = async () => {
@@ -29,10 +31,16 @@ export default function SalaryCard({
         const otAmount = getTotalOT(salary.staffUid, selectedMonth);
         const shortAmount = getTotalShort(salary.staffUid, selectedMonth);
         
-        const calculatedNet = Math.max(0, 
-          salary.monthlySalary + otAmount - shortAmount + adjustment - advances
+        // Use validation helper to calculate and detect negative salary
+        const salaryResult = calculateNetSalaryWithWarning(
+          salary.monthlySalary,
+          otAmount - shortAmount,
+          -adjustment, // adjustment is positive for bonus, negative for deduction
+          advances
         );
-        setNetSalary(calculatedNet);
+        
+        setNetSalary(Math.max(0, salaryResult.netSalary));
+        setSalaryWarning(salaryResult.warning);
       } catch (error) {
         console.error('Error calculating salary:', error);
         setDayOffAdjustment(0);
@@ -405,6 +413,37 @@ export default function SalaryCard({
             )}
           </span>
         </div>
+        
+        {/* Warning for negative net salary */}
+        {salaryWarning && (
+          <div style={{
+            padding: '12px',
+            background: 'linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%)',
+            border: '2px solid #ffc107',
+            borderRadius: '8px',
+            marginTop: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <span style={{ fontSize: '20px' }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ 
+                fontWeight: 'bold', 
+                color: '#856404',
+                marginBottom: '4px'
+              }}>
+                Negative Net Salary Warning
+              </div>
+              <div style={{ 
+                fontSize: '13px', 
+                color: '#856404'
+              }}>
+                Deductions exceed income. Please review salary components.
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={styles.cardActions}>

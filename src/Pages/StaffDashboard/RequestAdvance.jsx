@@ -13,6 +13,7 @@ import { db } from "../../firebase";
 import "./RequestAdvance.css";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getShiftMonth } from "../../utils/dateHelpers";
+import { validateAdvanceRequest, isValidAmount } from "../../utils/validationHelpers";
 
 export default function RequestAdvance({ staffData, onLogout }) {
   const [amount, setAmount] = useState("");
@@ -190,8 +191,21 @@ export default function RequestAdvance({ staffData, onLogout }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Use improved validation helper
+    const amountValidation = validateAdvanceRequest(amount, advanceDate ? "valid" : "");
+    
+    if (!amountValidation.valid) {
+      showNotification(amountValidation.error, "error");
+      return;
+    }
+
+    if (!advanceDate || advanceDate === '') {
+      showNotification("Please select when you need the advance", "error");
+      return;
+    }
+    
     const validations = {
-      hasAmount: !!amount && !isNaN(amount) && amount > 0,
+      hasAmount: isValidAmount(amount),
       hasDate: !!advanceDate,
       hasSalary: !!salary,
       hasStaffData: !!staffName && !!staffId && !!uid,
@@ -200,7 +214,7 @@ export default function RequestAdvance({ staffData, onLogout }) {
     };
 
     if (!validations.hasAmount) {
-      showNotification("Please enter a valid amount", "error");
+      showNotification("Please enter a valid amount greater than 0", "error");
       return;
     }
 

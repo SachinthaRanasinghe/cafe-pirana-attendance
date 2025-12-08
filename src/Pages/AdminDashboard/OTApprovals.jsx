@@ -11,6 +11,7 @@ import {
 import { db } from "../../firebase";
 import "./OTApprovals.css";
 import { useNavigate, useLocation } from "react-router-dom";
+import { validateOTHours } from "../../utils/validationHelpers";
 
 export default function OTApprovals({ onLogout }) {
   const [adjustmentRequests, setAdjustmentRequests] = useState([]);
@@ -94,8 +95,15 @@ export default function OTApprovals({ onLogout }) {
 
   // Save edited hours - UPDATED to use staff-specific rates
   const saveEditedHours = async () => {
-    if (!editingRequest || !editedHours || isNaN(editedHours) || parseFloat(editedHours) <= 0) {
-      showNotification("Please enter valid hours", "error");
+    // Use improved validation
+    const validation = validateOTHours(editedHours);
+    if (!validation.valid) {
+      showNotification(validation.error, "error");
+      return;
+    }
+    
+    if (!editingRequest) {
+      showNotification("No request selected for editing", "error");
       return;
     }
 

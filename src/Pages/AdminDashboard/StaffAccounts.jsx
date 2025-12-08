@@ -5,6 +5,7 @@ import { auth, db } from "../../firebase";
 import { collection, doc, setDoc, getDocs, query, where, orderBy, onSnapshot, updateDoc } from "firebase/firestore";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./StaffAccounts.css";
+import { isValidName, isValidPassword } from "../../utils/validationHelpers";
 
 export default function StaffAccounts({ onLogout }) {
   const navigate = useNavigate();
@@ -95,14 +96,24 @@ export default function StaffAccounts({ onLogout }) {
     e.preventDefault();
     setSuccessMessage("");
 
-    // Validation
-    if (!staffName.trim() || !username.trim() || !tempPassword.trim()) {
-      showNotification("Please fill in all fields.", "error");
+    // Validation with improved helpers
+    if (!isValidName(staffName)) {
+      showNotification("Please enter a valid staff name.", "error");
       return;
     }
 
-    if (username.length < 3) {
+    if (!isValidName(username)) {
+      showNotification("Please enter a valid username.", "error");
+      return;
+    }
+
+    if (username.trim().length < 3) {
       showNotification("Username must be at least 3 characters.", "error");
+      return;
+    }
+
+    if (!isValidPassword(tempPassword)) {
+      showNotification("Password must be at least 6 characters.", "error");
       return;
     }
 

@@ -16,6 +16,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { getDayOffRates, saveDayOffRates, calculateMonthlyDaysOff, getEffectiveDayOffConfig, saveStaffDayOffConfig, deleteStaffDayOffConfig, isFirstDayOfMonth } from "../../config/dayOffRates";
 import SalaryCard from "./SalaryCard";
 import { getLocalMonth } from "../../utils/dateHelpers";
+import { validateSalary, validateNumericInput, safeParseFloat } from "../../utils/validationHelpers";
 
 export default function SalaryManagement({ onLogout }) {
   const [staffMembers, setStaffMembers] = useState([]);
@@ -330,8 +331,23 @@ export default function SalaryManagement({ onLogout }) {
 
   // Handle setting salary and OT rate
   const handleSetSalary = async (staff) => {
-    if (!monthlySalary || isNaN(monthlySalary) || monthlySalary <= 0) {
-      alert("Please enter a valid monthly salary amount");
+    // Use improved validation
+    const salaryValidation = validateSalary(monthlySalary);
+    if (!salaryValidation.valid) {
+      alert(salaryValidation.error);
+      return;
+    }
+
+    // Validate OT rate
+    const otRateValidation = validateNumericInput(otRate || 200, {
+      min: 0,
+      allowZero: false,
+      allowNegative: false,
+      fieldName: 'OT Rate'
+    });
+    
+    if (!otRateValidation.valid) {
+      alert(otRateValidation.error);
       return;
     }
 
@@ -341,9 +357,9 @@ export default function SalaryManagement({ onLogout }) {
         staffUid: staff.staffUid,
         staffName: staff.staffName,
         staffId: staff.staffId,
-        monthlySalary: parseFloat(monthlySalary),
-        hourlyRate: parseFloat(monthlySalary) / (26 * 8),
-        otRate: otRate ? parseFloat(otRate) : 200,
+        monthlySalary: safeParseFloat(monthlySalary, 0),
+        hourlyRate: safeParseFloat(monthlySalary, 0) / (26 * 8),
+        otRate: safeParseFloat(otRate, 200),
         updatedAt: new Date().toISOString(),
         createdAt: salaries[staff.staffUid]?.createdAt || new Date().toISOString()
       };
@@ -601,17 +617,20 @@ export default function SalaryManagement({ onLogout }) {
   };
 
   const handleSaveServiceCharge = async () => {
-    if (serviceChargeInput === "") {
-      alert("Please enter a service charge amount.");
+    // Use improved validation
+    const validation = validateNumericInput(serviceChargeInput, {
+      min: 0,
+      allowZero: true,
+      allowNegative: false,
+      fieldName: 'Service Charge'
+    });
+    
+    if (!validation.valid) {
+      alert(validation.error);
       return;
     }
 
-    const amount = parseFloat(serviceChargeInput);
-    if (Number.isNaN(amount) || amount < 0) {
-      alert("Please enter a valid service charge amount.");
-      return;
-    }
-
+    const amount = validation.value;
     setServiceChargeSaving(true);
     try {
       await setDoc(doc(db, "systemConfig", "serviceCharge"), {
