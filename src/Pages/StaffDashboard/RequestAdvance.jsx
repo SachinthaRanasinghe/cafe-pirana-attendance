@@ -12,6 +12,7 @@ import {
 import { db } from "../../firebase";
 import "./RequestAdvance.css";
 import { useNavigate, useLocation } from "react-router-dom";
+import { getShiftMonth } from "../../utils/dateHelpers";
 
 export default function RequestAdvance({ staffData, onLogout }) {
   const [amount, setAmount] = useState("");
