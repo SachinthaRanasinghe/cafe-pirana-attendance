@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "../../firebase";
-import { collection, doc, setDoc, getDocs, query, where, orderBy, onSnapshot, updateDoc } from "firebase/firestore";
+import { collection, doc, setDoc, getDocs, query, where, orderBy, onSnapshot, updateDoc, deleteDoc } from "firebase/firestore";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./StaffAccounts.css";
 import { isValidName, isValidPassword } from "../../utils/validationHelpers";
@@ -29,6 +29,11 @@ export default function StaffAccounts({ onLogout }) {
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [resettingPassword, setResettingPassword] = useState(false);
+  
+  // Delete account states
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [staffToDelete, setStaffToDelete] = useState(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Load all staff accounts
   useEffect(() => {
@@ -253,6 +258,49 @@ export default function StaffAccounts({ onLogout }) {
     }
   };
 
+  // Open delete confirmation modal
+  const handleOpenDeleteModal = (staff) => {
+    setStaffToDelete(staff);
+    setDeleteModalOpen(true);
+  };
+
+  // Close delete confirmation modal
+  const handleCloseDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setStaffToDelete(null);
+  };
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    if (!staffToDelete) {
+      showNotification("Error: No staff selected for deletion", "error");
+      return;
+    }
+
+    setDeletingAccount(true);
+
+    try {
+      // Delete staff document from Firestore
+      await deleteDoc(doc(db, "staff", staffToDelete.id));
+
+      showNotification(`✅ Account for ${staffToDelete.staffName} has been deleted successfully.`, "success");
+      handleCloseDeleteModal();
+
+      // Optional: Delete related data (salary, availability, advances, etc.)
+      // You can add these deletions if needed:
+      // - Delete from salaries collection
+      // - Delete from availability collection
+      // - Delete from advances collection
+      // - Delete from overtime collection
+
+    } catch (error) {
+      console.error("Account deletion error:", error);
+      showNotification("❌ Failed to delete account: " + error.message, "error");
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
   // Navigation helpers
   const safeNavigate = (path) => {
     try {
@@ -459,6 +507,7 @@ export default function StaffAccounts({ onLogout }) {
                       <th>Created</th>
                       <th>Status</th>
                       <th>Reset Password</th>
+                      <th>Delete Account</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -485,6 +534,16 @@ export default function StaffAccounts({ onLogout }) {
                           >
                             <span className="action-icon">🔑</span>
                             <span className="action-text">Reset Password</span>
+                          </button>
+                        </td>
+                        <td className="staff-actions">
+                          <button
+                            className="action-btn delete-btn"
+                            onClick={() => handleOpenDeleteModal(staff)}
+                            title="Delete Account"
+                          >
+                            <span className="action-icon">🗑️</span>
+                            <span className="action-text">Delete</span>
                           </button>
                         </td>
                       </tr>
@@ -578,6 +637,75 @@ export default function StaffAccounts({ onLogout }) {
                   <>
                     <span>🔑</span>
                     <span>Reset Password</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Confirmation Modal */}
+      {deleteModalOpen && staffToDelete && (
+        <div className="modal-overlay" onClick={handleCloseDeleteModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>🗑️ Delete Account</h3>
+              <button className="close-btn" onClick={handleCloseDeleteModal}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="warning-box danger">
+                <div className="warning-icon">⚠️</div>
+                <div className="warning-text">
+                  <strong>Warning:</strong> This action cannot be undone!
+                </div>
+              </div>
+
+              <div className="delete-confirmation">
+                <p><strong>Are you sure you want to delete this account?</strong></p>
+                <div className="staff-details">
+                  <p>👤 <strong>Name:</strong> {staffToDelete.staffName}</p>
+                  <p>🆔 <strong>Staff ID:</strong> {staffToDelete.staffId}</p>
+                  <p>📧 <strong>Username:</strong> @{staffToDelete.username}</p>
+                </div>
+                <div className="warning-box danger">
+                  <div className="warning-text">
+                    <strong>This will permanently delete:</strong>
+                    <ul style={{ marginTop: '10px', marginLeft: '20px' }}>
+                      <li>Staff account</li>
+                      <li>All salary records</li>
+                      <li>All availability data</li>
+                      <li>All advance requests</li>
+                      <li>All overtime records</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="btn-cancel"
+                onClick={handleCloseDeleteModal}
+                disabled={deletingAccount}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-delete"
+                onClick={handleDeleteAccount}
+                disabled={deletingAccount}
+              >
+                {deletingAccount ? (
+                  <>
+                    <div className="spinner-small"></div>
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🗑️</span>
+                    <span>Delete Account</span>
                   </>
                 )}
               </button>

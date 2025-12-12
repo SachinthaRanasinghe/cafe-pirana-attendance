@@ -9,6 +9,7 @@ import {
   query,
   where,
   orderBy,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import "./StaffDashboard.css";
@@ -291,11 +292,78 @@ export default function StaffDashboard({ staffData, onLogout }) {
     return () => unsubscribe();
   }, [uid, staffName]);
 
-  // === Clock In ===
+  // === Auto-Close Previous Unclosed Sessions ===
+  const autoCloseUncompletedSessions = async () => {
+    try {
+      // Query ALL unclosed sessions for this staff member (not just today)
+      const uncompletedQuery = query(
+        collection(db, "sessions"),
+        where("staffUid", "==", uid),
+        where("status", "==", "active"),
+        where("clockOut", "==", null),
+        orderBy("clockIn", "asc")
+      );
+
+      const snapshot = await getDocs(uncompletedQuery);
+      
+      if (snapshot.empty) {
+        return { closed: 0, sessions: [] };
+      }
+
+      const now = new Date();
+      const closedSessions = [];
+      const closePromises = [];
+
+      snapshot.forEach((docSnapshot) => {
+        const sessionData = docSnapshot.data();
+        const clockInTime = new Date(sessionData.clockIn);
+        const duration = now - clockInTime;
+
+        // Prepare update data
+        const updateData = {
+          clockOut: now.toISOString(),
+          duration: duration,
+          totalHours: duration / (1000 * 60 * 60),
+          status: "completed",
+          autoClosed: true,
+          autoClosedAt: now.toISOString(),
+          autoCloseReason: "Auto-closed due to new clock-in without proper clock-out",
+          crossMidnight: clockInTime.toDateString() !== now.toDateString()
+        };
+
+        // Update the session in Firestore
+        const sessionRef = doc(db, "sessions", docSnapshot.id);
+        closePromises.push(updateDoc(sessionRef, updateData));
+
+        closedSessions.push({
+          id: docSnapshot.id,
+          clockIn: sessionData.clockIn,
+          clockOut: now.toISOString(),
+          duration: duration,
+          shiftDate: sessionData.shiftDate
+        });
+      });
+
+      // Execute all updates
+      await Promise.all(closePromises);
+
+      return {
+        closed: closedSessions.length,
+        sessions: closedSessions
+      };
+
+    } catch (error) {
+      console.error("Error auto-closing sessions:", error);
+      throw new Error("Failed to auto-close previous sessions: " + error.message);
+    }
+  };
+
+  // === Clock In (with auto-close logic) ===
   const clockIn = async () => {
     setLoading(true);
     
     try {
+      // Step 1: Verify location first
       const locationResult = await verifyLocation();
       
       if (!locationResult.allowed) {
@@ -304,6 +372,31 @@ export default function StaffDashboard({ staffData, onLogout }) {
         return;
       }
 
+      // Step 2: Auto-close any unclosed sessions
+      let autoCloseResult = null;
+      try {
+        autoCloseResult = await autoCloseUncompletedSessions();
+        
+        if (autoCloseResult.closed > 0) {
+          console.log(`Auto-closed ${autoCloseResult.closed} unclosed session(s)`);
+          
+          // Show notification about auto-closed sessions
+          const sessionWord = autoCloseResult.closed === 1 ? 'session' : 'sessions';
+          showNotification(
+            `⚠️ Auto-closed ${autoCloseResult.closed} previous ${sessionWord} that ${autoCloseResult.closed === 1 ? 'was' : 'were'} not properly ended. Starting new session...`,
+            "info"
+          );
+        }
+      } catch (autoCloseError) {
+        // If auto-close fails, log but continue with clock-in
+        console.error("Auto-close failed:", autoCloseError);
+        showNotification(
+          "Warning: Could not auto-close previous sessions. Please contact admin if you see duplicate active sessions.",
+          "error"
+        );
+      }
+
+      // Step 3: Create new session
       const clockInTime = new Date();
       const session = {
         staffUid: uid,
@@ -328,13 +421,20 @@ export default function StaffDashboard({ staffData, onLogout }) {
         otStatus: "none",
         month: getLocalMonth(new Date()),
         shiftMonth: getShiftMonth(clockInTime),
-        isNightShift: clockInTime.getHours() >= 18
+        isNightShift: clockInTime.getHours() >= 18,
+        autoClosed: false  // This session was NOT auto-closed (it's new)
       };
 
       const docRef = await addDoc(collection(db, "sessions"), session);
       setCurrentSession({ id: docRef.id, ...session });
       setIsClockedIn(true);
-      showNotification(`Clocked in at ${formatTime(clockInTime)} - Location Verified!`, "success");
+      
+      // Success message
+      let successMsg = `Clocked in at ${formatTime(clockInTime)} - Location Verified!`;
+      if (autoCloseResult && autoCloseResult.closed > 0) {
+        successMsg += ` (${autoCloseResult.closed} previous session${autoCloseResult.closed > 1 ? 's' : ''} auto-closed)`;
+      }
+      showNotification(successMsg, "success");
       
     } catch (error) {
       console.error("Error clocking in:", error);
@@ -953,10 +1053,13 @@ export default function StaffDashboard({ staffData, onLogout }) {
           ) : (
             <div className="sessions-list">
               {todaySessions.map((session, index) => (
-                <div key={session.id} className="session-card">
+                <div key={session.id} className={`session-card ${session.autoClosed ? 'auto-closed' : ''}`}>
                   <div className="session-header">
                     <div className="session-info">
-                      <h4 className="session-title">Session #{todaySessions.length - index}</h4>
+                      <h4 className="session-title">
+                        Session #{todaySessions.length - index}
+                        {session.autoClosed && <span className="auto-close-badge">🤖 Auto-Closed</span>}
+                      </h4>
                       <div className="session-meta">
                         <span className="session-date">{formatTime(session.clockIn)}</span>
                         {session.isNightShift && <span className="night-badge">🌙 Night</span>}
@@ -968,6 +1071,15 @@ export default function StaffDashboard({ staffData, onLogout }) {
                     </div>
                   </div>
                   
+                  {session.autoClosed && (
+                    <div className="auto-close-notice">
+                      <span className="notice-icon">ℹ️</span>
+                      <span className="notice-text">
+                        This session was automatically closed because you started a new session without properly ending this one.
+                      </span>
+                    </div>
+                  )}
+                  
                   <div className="session-times">
                     <div className="time-entry">
                       <span className="time-label">Clock In</span>
@@ -977,7 +1089,10 @@ export default function StaffDashboard({ staffData, onLogout }) {
                     {session.clockOut && (
                       <div className="time-entry">
                         <span className="time-label">Clock Out</span>
-                        <span className="time-value">{formatTime(session.clockOut)}</span>
+                        <span className="time-value">
+                          {formatTime(session.clockOut)}
+                          {session.autoClosed && <span className="auto-label"> (Auto)</span>}
+                        </span>
                       </div>
                     )}
                   </div>

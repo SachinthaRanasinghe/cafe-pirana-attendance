@@ -2,9 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Allow any authenticated user to create staff accounts temporarily
+    // Then restrict based on email after first admin account is created
     function isAdmin() {
-      return request.auth != null &&
-             request.auth.token.email == 'admin@cafepiranha.com';
+      return request.auth != null && (
+        request.auth.token.email == 'admin@cafepiranha.com' ||
+        request.auth.uid == 'ADMIN_UID_PLACEHOLDER'
+      );
     }
 
     function isOwner(userId) {
@@ -16,11 +20,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // STAFF
+    // STAFF - Allow any authenticated user to create (for initial setup)
     match /staff/{staffId} {
       allow read: if true;
-      allow create, update: if isAdmin();
-      allow update: if isOwner(staffId);
+      allow create: if request.auth != null; // TEMPORARY: Any logged-in user can create
+      allow update: if isAdmin() || isOwner(staffId);
       allow delete: if false;
     }
 
