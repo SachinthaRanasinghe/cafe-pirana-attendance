@@ -75,7 +75,7 @@ html, body {
 /* 🪞 Enhanced Container Styles */
 .landing-container {
   width: 100%;
-  max-width: 440px;
+  max-width: 520px;
   position: relative;
   z-index: 2;
   box-sizing: border-box;
@@ -898,7 +898,7 @@ html, body {
 
 @media (min-width: 768px) {
   .landing-container {
-    max-width: 480px;
+    max-width: 560px;
   }
 
   .access-card {
