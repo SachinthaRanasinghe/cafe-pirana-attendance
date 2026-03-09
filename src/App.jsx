@@ -272,16 +272,6 @@ function App() {
   return (
     <div className="app">
       <div className="landing-container">
-        {/* Animated Background */}
-        <div className="background-animation">
-          <div className="floating-coffee">☕</div>
-          <div className="floating-croissant">🥐</div>
-          <div className="floating-spoon">🥄</div>
-          <div className="floating-bubble"></div>
-          <div className="floating-bubble"></div>
-          <div className="floating-bubble"></div>
-        </div>
-
         {/* Main Content */}
         <div className="main-content">
           {/* Hero Section */}
