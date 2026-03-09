@@ -89,7 +89,11 @@ export default function StaffDashboard({ staffData, onLogout }) {
   const verifyLocation = () => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        reject(new Error("Geolocation is not supported by your browser"));
+        const errorMsg = "Geolocation is not supported by your browser";
+        setCheckingLocation(false);
+        setLocationAllowed(false);
+        setLocationMessage(errorMsg);
+        resolve({ allowed: false, error: true, errorMsg });
         return;
       }
 
@@ -120,7 +124,8 @@ export default function StaffDashboard({ staffData, onLogout }) {
               setLocationMessage(
                 `Location Restricted - ${distance.toFixed(1)}m away from Cafe Piranha`
               );
-              resolve({ allowed: false, distance: distance });
+              setUserCoords({ latitude, longitude });
+              resolve({ allowed: false, distance: distance, coords: { latitude, longitude } });
             }
             setCheckingLocation(false);
           }, 1000);
@@ -128,12 +133,13 @@ export default function StaffDashboard({ staffData, onLogout }) {
         (err) => {
           setCheckingLocation(false);
           let errorMsg = "Unable to determine location";
-          if (err.code === 1) errorMsg = "Location access denied. Please enable location services";
-          else if (err.code === 2) errorMsg = "Location services unavailable";
-          else if (err.code === 3) errorMsg = "Location request timeout";
-          
+          if (err.code === 1) errorMsg = "Location access denied — please enable location permissions in your browser settings";
+          else if (err.code === 2) errorMsg = "Location services unavailable — please enable GPS/Location on your device and try again";
+          else if (err.code === 3) errorMsg = "Location request timed out — please check your GPS signal and try again";
+
+          setLocationAllowed(false);
           setLocationMessage(errorMsg);
-          reject(new Error(errorMsg));
+          resolve({ allowed: false, error: true, errorMsg });
         },
         options
       );
@@ -300,7 +306,6 @@ export default function StaffDashboard({ staffData, onLogout }) {
         collection(db, "sessions"),
         where("staffUid", "==", uid),
         where("status", "==", "active"),
-        where("clockOut", "==", null),
         orderBy("clockIn", "asc")
       );
 
@@ -367,7 +372,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
       const locationResult = await verifyLocation();
       
       if (!locationResult.allowed) {
-        showNotification(`Cannot clock in: ${locationMessage}`, "error");
+        showNotification(locationResult.errorMsg || locationMessage || "Cannot clock in: location not verified", "error");
         setLoading(false);
         return;
       }
@@ -453,7 +458,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
       const locationResult = await verifyLocation();
       
       if (!locationResult.allowed) {
-        showNotification(`Cannot clock out: ${locationMessage}`, "error");
+        showNotification(locationResult.errorMsg || locationMessage || "Cannot clock out: location not verified", "error");
         setLoading(false);
         return;
       }
@@ -503,7 +508,7 @@ export default function StaffDashboard({ staffData, onLogout }) {
       const locationResult = await verifyLocation();
       
       if (!locationResult.allowed) {
-        showNotification(`Cannot end shift: ${locationMessage}`, "error");
+        showNotification(locationResult.errorMsg || locationMessage || "Cannot end shift: location not verified", "error");
         setEndingShift(false);
         return;
       }
@@ -626,15 +631,11 @@ export default function StaffDashboard({ staffData, onLogout }) {
 
   // === Manual Location Check ===
   const checkLocationManually = async () => {
-    try {
-      const result = await verifyLocation();
-      if (result.allowed) {
-        showNotification("Location verified! You can clock in/out.", "success");
-      } else {
-        showNotification(locationMessage, "error");
-      }
-    } catch (error) {
-      showNotification(error.message, "error");
+    const result = await verifyLocation();
+    if (result.allowed) {
+      showNotification("Location verified! You can clock in/out.", "success");
+    } else {
+      showNotification(result.errorMsg || locationMessage, "error");
     }
   };
 
@@ -933,7 +934,32 @@ export default function StaffDashboard({ staffData, onLogout }) {
                   <div className="location-icon">
                     {locationAllowed ? '✅' : locationAllowed === false ? '❌' : '📍'}
                   </div>
-                  <span className="location-message">{locationMessage}</span>
+                  <div className="location-message-block">
+                    <span className="location-message">{locationMessage}</span>
+                    {locationAllowed === false && userCoords && (
+                      <div className="location-coords">
+                        <span className="coords-label">📌 Your Current Location:</span>
+                        <div className="coords-values">
+                          <span className="coord-item">
+                            <span className="coord-key">Lat:</span>
+                            <span className="coord-val">{userCoords.latitude.toFixed(6)}</span>
+                          </span>
+                          <span className="coord-item">
+                            <span className="coord-key">Lng:</span>
+                            <span className="coord-val">{userCoords.longitude.toFixed(6)}</span>
+                          </span>
+                        </div>
+                        <a
+                          className="coords-map-link"
+                          href={`https://www.google.com/maps?q=${userCoords.latitude},${userCoords.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          🗺️ View on Google Maps
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

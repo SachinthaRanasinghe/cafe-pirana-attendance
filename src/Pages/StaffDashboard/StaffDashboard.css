@@ -655,7 +655,7 @@
 
 .location-status {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 16px;
   border-radius: var(--radius-sm);
@@ -683,6 +683,72 @@
 
 .location-icon {
   font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.location-message-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.location-coords {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.coords-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.85;
+  letter-spacing: 0.3px;
+}
+
+.coords-values {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.coord-item {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.coord-key {
+  opacity: 0.7;
+  font-weight: 500;
+}
+
+.coord-val {
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+
+.coords-map-link {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #f87171;
+  text-decoration: none;
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
+
+.coords-map-link:hover {
+  opacity: 1;
+  text-decoration: underline;
 }
 
 /* === Summary Section === */
