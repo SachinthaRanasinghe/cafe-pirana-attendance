@@ -5,26 +5,35 @@
   box-sizing: border-box;
 }
 
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
 .app {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  padding: 20px;
+  padding: 16px;
   font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
+  width: 100%;
 }
 
 /* Glassmorphism Container */
 .login-container {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(18px);
-  padding: 45px 40px;
+  padding: 36px 32px;
   border-radius: 20px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
   width: 100%;
   max-width: 440px;
   border: 1px solid rgba(255, 255, 255, 0.2);
+  box-sizing: border-box;
 }
 
 /* Branding */
@@ -305,33 +314,107 @@
 
 /* Responsive Design */
 @media (max-width: 480px) {
+  .app {
+    align-items: flex-start;
+    padding-top: 24px;
+    padding: 12px;
+  }
+
   .login-container,
   .welcome-container {
-    padding: 30px 20px;
-    margin: 10px;
+    padding: 24px 16px;
+    margin: 0;
+    max-width: 100%;
+    border-radius: 16px;
   }
-  
+
+  .login-header {
+    margin-bottom: 24px;
+  }
+
   .cafe-brand {
     flex-direction: column;
     text-align: center;
+    gap: 10px;
   }
-  
+
   .brand-text {
     text-align: center;
   }
-  
+
   .cafe-name {
-    font-size: 1.8rem;
+    font-size: 1.7rem;
   }
-  
+
+  .cafe-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .login-subtitle {
+    font-size: 0.85rem;
+  }
+
+  .form-input {
+    padding: 12px 14px;
+    font-size: 0.95rem;
+  }
+
+  .login-btn {
+    padding: 14px;
+    font-size: 0.95rem;
+  }
+
   .action-buttons {
     flex-direction: column;
   }
-  
+
   .security-notice {
     flex-direction: column;
     text-align: center;
     gap: 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  .app {
+    padding: 8px;
+  }
+
+  .login-container,
+  .welcome-container {
+    padding: 20px 12px;
+    border-radius: 14px;
+  }
+
+  .cafe-name {
+    font-size: 1.4rem;
+  }
+
+  .input-group {
+    margin-bottom: 14px;
+  }
+
+  .form-input {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+
+  .login-btn {
+    padding: 12px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (min-height: 700px) and (max-width: 480px) {
+  .app {
+    align-items: center;
+  }
+}
+
+@media (min-width: 768px) {
+  .login-container {
+    padding: 48px 44px;
+    max-width: 460px;
   }
 }
 
