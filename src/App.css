@@ -42,7 +42,8 @@ html, body {
   justify-content: center;
   padding: 20px;
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden;
+  width: 100%;
 }
 
 /* 🌀 Enhanced Loading States */
@@ -77,6 +78,7 @@ html, body {
   max-width: 440px;
   position: relative;
   z-index: 2;
+  box-sizing: border-box;
 }
 
 /* 🧭 Premium Main Layout */
@@ -84,6 +86,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 32px;
+  width: 100%;
 }
 
 /* 🎯 Enhanced Hero Section */
@@ -93,7 +96,7 @@ html, body {
 }
 
 .main-logo {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
@@ -102,6 +105,7 @@ html, body {
   height: 120px;
   margin-left: auto;
   margin-right: auto;
+  overflow: visible;
 }
 
 .hero-logo {
@@ -136,10 +140,14 @@ html, body {
 
 .logo-container {
   position: relative;
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   width: 120px;
   height: 120px;
+  overflow: visible;
+  margin: 0 auto;
 }
 
 .logo-shine {
@@ -147,8 +155,8 @@ html, body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 130px;
-  height: 130px;
+  width: 120px;
+  height: 120px;
   background: radial-gradient(circle, 
     rgba(245, 158, 11, 0.25) 0%, 
     transparent 65%);
@@ -157,7 +165,6 @@ html, body {
   z-index: 1;
   pointer-events: none;
   aspect-ratio: 1 / 1;
-  overflow: hidden;
 }
 
 .logo-glow {
@@ -165,8 +172,8 @@ html, body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 130px;
-  height: 130px;
+  width: 120px;
+  height: 120px;
   background: radial-gradient(circle, 
     rgba(245, 158, 11, 0.4) 0%, 
     transparent 60%);
@@ -777,99 +784,150 @@ html, body {
 /* 📱 Enhanced Mobile Responsiveness */
 @media (max-width: 480px) {
   .app {
-    padding: 16px;
+    padding: 12px;
+    align-items: flex-start;
+    padding-top: 20px;
   }
-  
+
   .landing-container {
     max-width: 100%;
+    width: 100%;
   }
-  
+
+  .main-content {
+    gap: 20px;
+  }
+
   .hero-title {
-    font-size: 2.4rem;
+    font-size: 2rem;
   }
-  
+
+  .hero-subtitle {
+    font-size: 0.95rem;
+  }
+
   .main-logo {
-    width: 100px;
-    height: 100px;
+    width: 90px;
+    height: 90px;
   }
-  
+
   .hero-logo {
-    width: 100px;
-    height: 100px;
+    width: 90px;
+    height: 90px;
   }
-  
-  .logo-shine {
-    width: 120px;
-    height: 120px;
+
+  .logo-container {
+    width: 90px;
+    height: 90px;
   }
-  
+
+  .logo-shine,
   .logo-glow {
-    width: 110px;
-    height: 110px;
+    width: 90px;
+    height: 90px;
   }
-  
+
   .access-card {
-    padding: 24px;
+    padding: 20px 16px;
   }
-  
+
+  .card-content h3 {
+    font-size: 1.2rem;
+  }
+
+  .access-btn {
+    padding: 14px;
+    font-size: 1rem;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .feature-item {
+    padding: 14px 10px;
+    font-size: 0.85rem;
+  }
+
+  .feature-icon {
+    font-size: 1.3rem;
+    margin-bottom: 4px;
+  }
+
+  .login-container {
+    padding: 24px 16px;
+    margin: 0;
+  }
+
+  .cafe-logo {
+    width: 75px;
+    height: 75px;
+  }
+
+  .brand-text h1 {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .app {
+    padding: 8px;
+  }
+
+  .hero-title {
+    font-size: 1.7rem;
+  }
+
+  .access-card {
+    padding: 16px 12px;
+  }
+
   .features-grid {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 8px;
   }
-  
+
   .feature-item {
     flex-direction: row;
     justify-content: flex-start;
-    padding: 18px 20px;
+    padding: 12px 14px;
     text-align: left;
-  }
-  
-  .login-container {
-    padding: 28px 20px;
-    margin: 0 16px;
-  }
-  
-  .cafe-logo {
-    width: 80px;
-    height: 80px;
-  }
-  
-  .brand-text h1 {
-    font-size: 1.6rem;
   }
 }
 
 @media (min-width: 768px) {
-  .landing-container { 
-    max-width: 480px; 
+  .landing-container {
+    max-width: 480px;
   }
-  
-  .access-card { 
-    padding: 32px; 
+
+  .access-card {
+    padding: 32px;
   }
-  
+
   .hero-title {
     font-size: 3rem;
   }
-  
+
   .main-logo {
     width: 140px;
     height: 140px;
   }
-  
+
   .hero-logo {
     width: 140px;
     height: 140px;
   }
-  
-  .logo-shine {
-    width: 160px;
-    height: 160px;
+
+  .logo-container {
+    width: 140px;
+    height: 140px;
   }
-  
+
+  .logo-shine,
   .logo-glow {
-    width: 150px;
-    height: 150px;
+    width: 140px;
+    height: 140px;
   }
 }
 
