@@ -503,7 +503,6 @@
   width: 100%;
   border-collapse: collapse;
   background: rgba(15, 23, 42, 0.6);
-  min-width: 800px;
 }
 
 .staff-table thead {
@@ -1043,64 +1042,111 @@
   .mobile-main {
     padding: 16px;
   }
-  
+
   .content-section {
-    padding: 20px;
+    padding: 16px;
   }
-  
+
   .section-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  
+
   .staff-count {
     align-self: flex-start;
   }
-  
+
+  /* Convert table to card layout on mobile */
+  .staff-list-container {
+    overflow-x: visible;
+  }
+
   .staff-table {
-    font-size: 0.8rem;
-    min-width: 700px;
+    display: block;
+    width: 100%;
   }
-  
-  .staff-table th,
+
+  .staff-table thead {
+    display: none;
+  }
+
+  .staff-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .staff-table tr {
+    display: flex;
+    flex-direction: column;
+    background: rgba(30, 41, 59, 0.8);
+    border-radius: 14px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    gap: 8px;
+  }
+
   .staff-table td {
-    padding: 14px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    border: none;
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
   }
-  
-  .action-btn {
-    min-width: 140px;
-    padding: 10px 12px;
+
+  .staff-table td:last-child {
+    border-bottom: none;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 10px;
   }
-  
-  .action-text {
+
+  .staff-table td::before {
+    content: attr(data-label);
     font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    margin-right: 8px;
   }
-  
+
+  .action-btn {
+    min-width: 0;
+    width: 100%;
+    padding: 12px;
+    font-size: 0.85rem;
+  }
+
   .nav-label {
     display: none;
   }
-  
+
   .nav-btn {
     padding: 8px 16px;
   }
-  
+
   .modal-overlay {
     padding: 0.5rem;
   }
-  
+
   .modal-content {
     max-width: 100%;
   }
-  
+
   .modal-header h3 {
     font-size: 1.1rem;
   }
-  
+
   .modal-footer {
     flex-direction: column;
   }
-  
+
   .btn-cancel,
   .btn-confirm {
     width: 100%;

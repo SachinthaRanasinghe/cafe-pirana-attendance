@@ -513,20 +513,20 @@ export default function StaffAccounts({ onLogout }) {
                   <tbody>
                     {staffList.map((staff) => (
                       <tr key={staff.id}>
-                        <td className="staff-id">{staff.staffId}</td>
-                        <td className="staff-name">{staff.staffName}</td>
-                        <td className="staff-username">@{staff.username}</td>
-                        <td className="staff-date">
+                        <td className="staff-id" data-label="ID">{staff.staffId}</td>
+                        <td className="staff-name" data-label="Name">{staff.staffName}</td>
+                        <td className="staff-username" data-label="Username">@{staff.username}</td>
+                        <td className="staff-date" data-label="Joined">
                           {new Date(staff.createdAt).toLocaleDateString()}
                         </td>
-                        <td className="staff-status">
+                        <td className="staff-status" data-label="Status">
                           {staff.isFirstLogin ? (
                             <span className="badge badge-pending">Pending</span>
                           ) : (
                             <span className="badge badge-complete">Active</span>
                           )}
                         </td>
-                        <td className="staff-actions">
+                        <td className="staff-actions" data-label="Actions">
                           <button
                             className="action-btn reset-btn"
                             onClick={() => handleOpenResetModal(staff)}
@@ -535,8 +535,6 @@ export default function StaffAccounts({ onLogout }) {
                             <span className="action-icon">🔑</span>
                             <span className="action-text">Reset Password</span>
                           </button>
-                        </td>
-                        <td className="staff-actions">
                           <button
                             className="action-btn delete-btn"
                             onClick={() => handleOpenDeleteModal(staff)}
