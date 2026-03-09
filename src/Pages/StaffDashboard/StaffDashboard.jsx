@@ -42,8 +42,8 @@ export default function StaffDashboard({ staffData, onLogout }) {
   const { staffName, staffId, uid } = staffData;
 
   // Allowed location (Cafe Piranha - Ella)
-  const ALLOWED_LAT = 6.871796;  
-  const ALLOWED_LNG = 81.057271;
+  const ALLOWED_LAT = 6.845782;  
+  const ALLOWED_LNG = 81.005111;
   const MAX_DISTANCE_METERS = 100;
 
   // Helper functions for shift-based tracking
